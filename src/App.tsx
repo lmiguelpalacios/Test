@@ -15,7 +15,7 @@ export default function App() {
       <Routes>
         <Route element={<AppLayout />}>
           <Route index element={<DashboardPage />} />
-          <Route path="buchhaltung" element={<BuchhaltungPage />} />
+          <Route path="buchhaltung/*" element={<BuchhaltungPage />} />
           <Route path="verkauf" element={<VerkaufPage />} />
           <Route path="einkauf" element={<EinkaufPage />} />
           <Route path="lager" element={<LagerPage />} />

@@ -24,11 +24,19 @@ npm run build
 npm run preview
 ```
 
-Typecheck:
+Typecheck / Tests:
 
 ```bash
 npm run typecheck
+npm test
 ```
+
+### Buchhaltung
+
+- Lernkontenplan (SKR-03-angelehnt) unter `/buchhaltung/kontenplan`
+- Buchungen erfassen unter `/buchhaltung/neu` (Soll/Haben-Ausgleich, USt-Berechnung)
+- Kennzahlen der Übersicht werden aus den Buchungszeilen berechnet (Cent-basiert)
+- Dashboard-Demodaten bleiben unverändert (eigene YTD-Demoansicht)
 
 ## Struktur
 
@@ -48,7 +56,7 @@ supabase/       # Stub für spätere Backend-Anbindung (nicht aktiv)
 | Bereich        | Status                                      |
 |----------------|---------------------------------------------|
 | Dashboard      | Demo-Kennzahlen, Grafik, Aktivitäten        |
-| Buchhaltung    | Platzhalter                                 |
+| Buchhaltung    | Übersicht, Kontenplan, Buchungserfassung    |
 | Verkauf        | Platzhalter                                 |
 | Einkauf        | Platzhalter                                 |
 | Lager          | Platzhalter                                 |
