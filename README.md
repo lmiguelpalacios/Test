@@ -31,12 +31,13 @@ npm run typecheck
 npm test
 ```
 
-### Buchhaltung
+### Buchhaltung & Persistenz
 
-- Lernkontenplan (SKR-03-angelehnt) unter `/buchhaltung/kontenplan`
-- Buchungen erfassen unter `/buchhaltung/neu` (Soll/Haben-Ausgleich, USt-Berechnung)
-- Kennzahlen der Übersicht werden aus den Buchungszeilen berechnet (Cent-basiert)
-- Dashboard-Demodaten bleiben unverändert (eigene YTD-Demoansicht)
+- Gemeinsame Journal-Datenquelle (`AccountingProvider` + `journalStore`)
+- Speicherung im Browser (`localStorage`), Reset auf Demo-Daten in der Buchhaltungsübersicht
+- Lernkontenplan unter `/buchhaltung/kontenplan`, Erfassung unter `/buchhaltung/neu`
+- Dashboard: Journal-Kennzahlen/Aktivitäten aus derselben Quelle; YTD-Grafik bleibt separate Demo
+
 
 ## Struktur
 

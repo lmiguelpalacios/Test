@@ -1,4 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { AccountingProvider } from './accounting/AccountingContext'
 import { AppLayout } from './layout/AppLayout'
 import { BerichtePage } from './pages/BerichtePage'
 import {
@@ -17,23 +18,25 @@ import { VerkaufPage } from './pages/VerkaufPage'
 export default function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route element={<AppLayout />}>
-          <Route index element={<DashboardPage />} />
-          <Route path="buchhaltung" element={<BuchhaltungLayout />}>
-            <Route index element={<BuchhaltungOverviewPage />} />
-            <Route path="kontenplan" element={<ChartOfAccountsPage />} />
-            <Route path="neu" element={<NewEntryPage />} />
+      <AccountingProvider>
+        <Routes>
+          <Route element={<AppLayout />}>
+            <Route index element={<DashboardPage />} />
+            <Route path="buchhaltung" element={<BuchhaltungLayout />}>
+              <Route index element={<BuchhaltungOverviewPage />} />
+              <Route path="kontenplan" element={<ChartOfAccountsPage />} />
+              <Route path="neu" element={<NewEntryPage />} />
+            </Route>
+            <Route path="verkauf" element={<VerkaufPage />} />
+            <Route path="einkauf" element={<EinkaufPage />} />
+            <Route path="lager" element={<LagerPage />} />
+            <Route path="kontakte" element={<KontaktePage />} />
+            <Route path="berichte" element={<BerichtePage />} />
+            <Route path="einstellungen" element={<EinstellungenPage />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
-          <Route path="verkauf" element={<VerkaufPage />} />
-          <Route path="einkauf" element={<EinkaufPage />} />
-          <Route path="lager" element={<LagerPage />} />
-          <Route path="kontakte" element={<KontaktePage />} />
-          <Route path="berichte" element={<BerichtePage />} />
-          <Route path="einstellungen" element={<EinstellungenPage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Route>
-      </Routes>
+        </Routes>
+      </AccountingProvider>
     </BrowserRouter>
   )
 }

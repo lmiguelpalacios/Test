@@ -56,8 +56,10 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         </nav>
 
         <div className="sidebar-footer">
-          <span className="demo-chip">Demo-Modus</span>
-          <p className="sidebar-footnote">Lokal ohne Backend lauffähig</p>
+          <span className="demo-chip">Lokaler Demo-Modus</span>
+          <p className="sidebar-footnote">
+            Journal im Browser (localStorage) · ohne Backend
+          </p>
         </div>
       </aside>
     </>

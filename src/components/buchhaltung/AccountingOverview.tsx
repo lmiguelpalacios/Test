@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { BookMarked, Plus } from 'lucide-react'
+import { BookMarked, Plus, RotateCcw } from 'lucide-react'
 import { useAccounting } from '../../accounting/AccountingContext'
 import { formatCents } from '../../accounting/money'
 import { DemoBanner } from '../DemoBanner'
@@ -8,15 +8,43 @@ import { JournalEntryCard } from './JournalEntryCard'
 import { LEARNING_CHART_NOTICE, chartOfAccounts } from '../../data/chart-of-accounts'
 
 export function AccountingOverview() {
-  const { entries, totals, periodLabel } = useAccounting()
+  const {
+    entries,
+    totals,
+    periodLabel,
+    persistSource,
+    persistWarning,
+    resetToDemo,
+  } = useAccounting()
   const recent = entries.slice(0, 5)
+
+  const persistLabel =
+    persistSource === 'storage'
+      ? 'aus Browser-Speicher'
+      : persistSource === 'recovered-demo'
+        ? 'Demo nach Wiederherstellung'
+        : 'Demo-Daten'
+
+  function handleReset() {
+    const confirmed = window.confirm(
+      'Übungsstand zurücksetzen?\n\nAlle im Browser gespeicherten Buchungen werden durch die ursprünglichen Demo-Daten ersetzt.',
+    )
+    if (confirmed) {
+      resetToDemo()
+    }
+  }
 
   return (
     <div className="page-stack">
-      <DemoBanner />
+      <DemoBanner
+        detail={
+          persistWarning ??
+          `Journal ${persistLabel} · Änderungen werden lokal im Browser gespeichert.`
+        }
+      />
       <PageHeader
         title="Buchhaltung"
-        subtitle={`${periodLabel} · Demodaten lokal, ohne Datenbank`}
+        subtitle={`${periodLabel} · gemeinsame Journal-Datenquelle`}
         actions={
           <div className="page-actions-row">
             <Link to="/buchhaltung/neu" className="btn btn-primary">
@@ -27,6 +55,10 @@ export function AccountingOverview() {
               <BookMarked size={16} aria-hidden />
               Kontenplan
             </Link>
+            <button type="button" className="btn btn-secondary" onClick={handleReset}>
+              <RotateCcw size={16} aria-hidden />
+              Demo zurücksetzen
+            </button>
           </div>
         }
       />
@@ -35,7 +67,7 @@ export function AccountingOverview() {
         <article className="kpi-card">
           <p className="kpi-label">Anzahl Buchungen</p>
           <p className="kpi-value">{totals.entryCount}</p>
-          <p className="kpi-hint">Im aktuellen Lernjournal</p>
+          <p className="kpi-hint">Aus gespeichertem Lernjournal</p>
         </article>
         <article className="kpi-card">
           <p className="kpi-label">Summe Soll</p>
@@ -48,9 +80,9 @@ export function AccountingOverview() {
           <p className="kpi-hint">Muss der Summe Soll entsprechen</p>
         </article>
         <article className="kpi-card">
-          <p className="kpi-label">Buchungszeitraum</p>
-          <p className="kpi-value kpi-value-text">Okt 2026</p>
-          <p className="kpi-hint">{periodLabel}</p>
+          <p className="kpi-label">Persistenz</p>
+          <p className="kpi-value kpi-value-text">localStorage</p>
+          <p className="kpi-hint">{persistLabel}</p>
         </article>
       </section>
 

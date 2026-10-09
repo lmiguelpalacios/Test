@@ -1,5 +1,4 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { AccountingProvider } from '../accounting/AccountingContext'
 import { AccountingOverview } from '../components/buchhaltung/AccountingOverview'
 import { ChartOfAccountsPanel } from '../components/buchhaltung/ChartOfAccountsPanel'
 import { JournalEntryForm } from '../components/buchhaltung/JournalEntryForm'
@@ -7,11 +6,7 @@ import { PageHeader } from '../components/PageHeader'
 import { DemoBanner } from '../components/DemoBanner'
 
 export function BuchhaltungLayout() {
-  return (
-    <AccountingProvider>
-      <Outlet />
-    </AccountingProvider>
-  )
+  return <Outlet />
 }
 
 export function BuchhaltungOverviewPage() {

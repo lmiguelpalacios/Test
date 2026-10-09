@@ -1,12 +1,18 @@
 import { Info } from 'lucide-react'
 
-export function DemoBanner() {
+interface DemoBannerProps {
+  /** Zusätzlicher Hinweis z. B. zu localStorage. */
+  detail?: string
+}
+
+export function DemoBanner({ detail }: DemoBannerProps) {
   return (
     <div className="demo-banner" role="status">
       <Info size={16} aria-hidden />
       <span>
-        Demo-Daten — keine echte Buchhaltung und keine Anbindung an eine Datenbank.
-        Alle Kennzahlen dienen ausschließlich zu Übungs- und Anzeigezwecken.
+        Lokaler Demo-Modus — keine echte Buchhaltung und kein Backend/Supabase.
+        Übungsdaten liegen bei Bedarf im Browser (localStorage).
+        {detail ? ` ${detail}` : ''}
       </span>
     </div>
   )
