@@ -31,12 +31,13 @@ npm run typecheck
 npm test
 ```
 
-### Buchhaltung & Persistenz
+### Buchhaltung, Verkauf & Persistenz
 
-- Gemeinsame Journal-Datenquelle (`AccountingProvider` + `journalStore`)
-- Speicherung im Browser (`localStorage`), Reset auf Demo-Daten in der Buchhaltungsübersicht
-- Lernkontenplan unter `/buchhaltung/kontenplan`, Erfassung unter `/buchhaltung/neu`
-- Dashboard: Journal-Kennzahlen/Aktivitäten aus derselben Quelle; YTD-Grafik bleibt separate Demo
+- Gemeinsame Journal-Datenquelle (`AccountingProvider` + Workspace-`localStorage` v2)
+- Verkauf: Kunden, Produkte, Ausgangsrechnungen (Entwurf → buchen → Zahlungen)
+- Rechnungsbuchung ins zentrale Journal (1400 / Erlöse / USt); Zahlungen Bank↔1400
+- Speichern/Laden inkl. Verkaufsdaten; Reset auf Demo in der Buchhaltung
+- Dashboard: Journal-Kennzahlen aus derselben Quelle; YTD-Grafik bleibt separate Demo
 
 
 ## Struktur
@@ -58,7 +59,7 @@ supabase/       # Stub für spätere Backend-Anbindung (nicht aktiv)
 |----------------|---------------------------------------------|
 | Dashboard      | Demo-Kennzahlen, Grafik, Aktivitäten        |
 | Buchhaltung    | Übersicht, Kontenplan, Buchungserfassung    |
-| Verkauf        | Platzhalter                                 |
+| Verkauf        | Kunden, Produkte, Rechnungen, Zahlungen     |
 | Einkauf        | Platzhalter                                 |
 | Lager          | Platzhalter                                 |
 | Kontakte       | Platzhalter                                 |

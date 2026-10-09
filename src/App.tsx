@@ -13,7 +13,14 @@ import { EinkaufPage } from './pages/EinkaufPage'
 import { EinstellungenPage } from './pages/EinstellungenPage'
 import { KontaktePage } from './pages/KontaktePage'
 import { LagerPage } from './pages/LagerPage'
-import { VerkaufPage } from './pages/VerkaufPage'
+import {
+  CustomersPage,
+  InvoiceDetailPage,
+  NewInvoicePage,
+  ProductsPage,
+  VerkaufLayout,
+  VerkaufOverviewPage,
+} from './pages/VerkaufPage'
 
 export default function App() {
   return (
@@ -27,7 +34,13 @@ export default function App() {
               <Route path="kontenplan" element={<ChartOfAccountsPage />} />
               <Route path="neu" element={<NewEntryPage />} />
             </Route>
-            <Route path="verkauf" element={<VerkaufPage />} />
+            <Route path="verkauf" element={<VerkaufLayout />}>
+              <Route index element={<VerkaufOverviewPage />} />
+              <Route path="neu" element={<NewInvoicePage />} />
+              <Route path="rechnungen/:invoiceId" element={<InvoiceDetailPage />} />
+              <Route path="kunden" element={<CustomersPage />} />
+              <Route path="produkte" element={<ProductsPage />} />
+            </Route>
             <Route path="einkauf" element={<EinkaufPage />} />
             <Route path="lager" element={<LagerPage />} />
             <Route path="kontakte" element={<KontaktePage />} />

@@ -1,10 +1,12 @@
 import type { JournalEntry, JournalLine, VatRate } from '../types/accounting'
+import type { SalesState } from '../types/sales'
 import { initialJournalEntries } from '../data/journal-entries'
+import { createDemoSalesState } from '../data/sales-demo'
 import { isBalanced } from './money'
 import { sumLines } from './validateEntry'
 
 export const JOURNAL_STORAGE_KEY = 'nordlicht.uebungsunternehmen.journal.v1'
-export const JOURNAL_STORAGE_VERSION = 1 as const
+export const JOURNAL_STORAGE_VERSION = 2 as const
 
 export interface StorageLike {
   getItem(key: string): string | null
@@ -12,13 +14,24 @@ export interface StorageLike {
   removeItem(key: string): void
 }
 
-export interface JournalPersistPayload {
+export interface WorkspacePersistPayload {
   version: typeof JOURNAL_STORAGE_VERSION
   savedAt: string
   entries: JournalEntry[]
+  sales: SalesState
 }
 
+/** @deprecated Alias — Payload heißt jetzt WorkspacePersistPayload */
+export type JournalPersistPayload = WorkspacePersistPayload
+
 export type JournalLoadSource = 'storage' | 'demo' | 'recovered-demo'
+
+export interface WorkspaceLoadResult {
+  entries: JournalEntry[]
+  sales: SalesState
+  source: JournalLoadSource
+  warning?: string
+}
 
 export interface JournalLoadResult {
   entries: JournalEntry[]
@@ -49,10 +62,6 @@ function isValidLine(value: unknown): value is JournalLine {
   return (hasDebit && !hasCredit) || (hasCredit && !hasDebit)
 }
 
-/**
- * Prüft Struktur und Soll/Haben-Ausgleich.
- * Verändert gespeicherte Buchungsdaten nicht (keine Neu-Kontierung).
- */
 export function isValidStoredEntry(value: unknown): value is JournalEntry {
   if (!isRecord(value)) return false
   if (typeof value.id !== 'string' || value.id.trim() === '') return false
@@ -86,10 +95,97 @@ export function sanitizeEntries(raw: unknown): JournalEntry[] {
     if (!isValidStoredEntry(item)) continue
     if (seen.has(item.id)) continue
     seen.add(item.id)
-    // Bewusst unverändert übernehmen (kein stilles Recompute der Lines).
     entries.push(item)
   }
   return entries
+}
+
+function sanitizeSales(raw: unknown): SalesState | null {
+  if (!isRecord(raw)) return null
+  if (!Array.isArray(raw.customers) || !Array.isArray(raw.products)) return null
+  if (!Array.isArray(raw.invoices) || !Array.isArray(raw.payments)) return null
+  const nextInvoiceSequence = raw.nextInvoiceSequence
+  if (!Number.isInteger(nextInvoiceSequence) || Number(nextInvoiceSequence) < 1) {
+    return null
+  }
+
+  const customers = raw.customers.filter(isValidCustomer)
+  const products = raw.products.filter(isValidProduct)
+  const invoices = raw.invoices.filter(isValidInvoice)
+  const payments = raw.payments.filter(isValidPayment)
+
+  if (customers.length === 0 || products.length === 0) return null
+
+  // Gebuchte Rechnungen mit fehlendem Journal-Link nicht stillschweigend verwerfen:
+  // ungültige Rechnungen werden gefiltert; gebuchte behalten journalEntryIds unverändert.
+  return {
+    customers,
+    products,
+    invoices,
+    payments: payments.filter((payment) =>
+      invoices.some((invoice) => invoice.id === payment.invoiceId),
+    ),
+    nextInvoiceSequence: nextInvoiceSequence as number,
+  }
+}
+
+function isValidCustomer(value: unknown): value is SalesState['customers'][number] {
+  if (!isRecord(value)) return false
+  return (
+    typeof value.id === 'string' &&
+    typeof value.number === 'string' &&
+    typeof value.companyName === 'string' &&
+    typeof value.billingAddress === 'string' &&
+    (value.contactName === undefined || typeof value.contactName === 'string') &&
+    (value.email === undefined || typeof value.email === 'string')
+  )
+}
+
+function isValidProduct(value: unknown): value is SalesState['products'][number] {
+  if (!isRecord(value)) return false
+  return (
+    typeof value.id === 'string' &&
+    typeof value.sku === 'string' &&
+    typeof value.name === 'string' &&
+    isNonNegInt(value.netUnitPriceCents) &&
+    isVatRate(value.vatRate)
+  )
+}
+
+function isValidInvoice(value: unknown): value is SalesState['invoices'][number] {
+  if (!isRecord(value)) return false
+  if (typeof value.id !== 'string' || typeof value.number !== 'string') return false
+  if (typeof value.issueDate !== 'string' || typeof value.dueDate !== 'string') return false
+  if (typeof value.customerId !== 'string') return false
+  if (!Array.isArray(value.lines) || value.lines.length === 0) return false
+  if (!Array.isArray(value.journalEntryIds)) return false
+  if (!value.journalEntryIds.every((id) => typeof id === 'string')) return false
+  if (typeof value.createdAt !== 'string' || typeof value.updatedAt !== 'string') return false
+  return value.lines.every((line) => {
+    if (!isRecord(line)) return false
+    return (
+      typeof line.id === 'string' &&
+      typeof line.description === 'string' &&
+      typeof line.quantity === 'number' &&
+      line.quantity > 0 &&
+      isNonNegInt(line.netUnitPriceCents) &&
+      isVatRate(line.vatRate)
+    )
+  })
+}
+
+function isValidPayment(value: unknown): value is SalesState['payments'][number] {
+  if (!isRecord(value)) return false
+  return (
+    typeof value.id === 'string' &&
+    typeof value.invoiceId === 'string' &&
+    typeof value.date === 'string' &&
+    isNonNegInt(value.amountCents) &&
+    value.amountCents > 0 &&
+    (value.bankAccount === '1200' || value.bankAccount === '1000') &&
+    typeof value.journalEntryId === 'string' &&
+    typeof value.createdAt === 'string'
+  )
 }
 
 export function cloneDemoEntries(): JournalEntry[] {
@@ -99,71 +195,129 @@ export function cloneDemoEntries(): JournalEntry[] {
   }))
 }
 
+export function cloneDemoWorkspace(): {
+  entries: JournalEntry[]
+  sales: SalesState
+} {
+  return {
+    entries: cloneDemoEntries(),
+    sales: createDemoSalesState(),
+  }
+}
+
+export function saveWorkspace(
+  data: { entries: JournalEntry[]; sales: SalesState },
+  storage: StorageLike,
+): void {
+  const payload: WorkspacePersistPayload = {
+    version: JOURNAL_STORAGE_VERSION,
+    savedAt: new Date().toISOString(),
+    entries: data.entries,
+    sales: data.sales,
+  }
+  storage.setItem(JOURNAL_STORAGE_KEY, JSON.stringify(payload))
+}
+
+/** Speichert Journal inkl. unverändertem/angehängtem Sales-Stand. */
 export function saveJournalEntries(
   entries: JournalEntry[],
   storage: StorageLike,
+  sales: SalesState = createDemoSalesState(),
 ): void {
-  const payload: JournalPersistPayload = {
-    version: JOURNAL_STORAGE_VERSION,
-    savedAt: new Date().toISOString(),
-    entries,
-  }
-  storage.setItem(JOURNAL_STORAGE_KEY, JSON.stringify(payload))
+  saveWorkspace({ entries, sales }, storage)
 }
 
 export function clearJournalStorage(storage: StorageLike): void {
   storage.removeItem(JOURNAL_STORAGE_KEY)
 }
 
-export function resetJournalEntries(storage: StorageLike): JournalEntry[] {
-  const demo = cloneDemoEntries()
-  saveJournalEntries(demo, storage)
+export function resetWorkspace(storage: StorageLike): {
+  entries: JournalEntry[]
+  sales: SalesState
+} {
+  const demo = cloneDemoWorkspace()
+  saveWorkspace(demo, storage)
   return demo
 }
 
-export function loadJournalEntries(storage: StorageLike): JournalLoadResult {
+export function resetJournalEntries(storage: StorageLike): JournalEntry[] {
+  return resetWorkspace(storage).entries
+}
+
+export function loadWorkspace(storage: StorageLike): WorkspaceLoadResult {
   const raw = storage.getItem(JOURNAL_STORAGE_KEY)
   if (raw == null || raw.trim() === '') {
-    const demo = cloneDemoEntries()
-    saveJournalEntries(demo, storage)
-    return { entries: demo, source: 'demo' }
+    const demo = cloneDemoWorkspace()
+    saveWorkspace(demo, storage)
+    return { ...demo, source: 'demo' }
   }
 
   try {
     const parsed: unknown = JSON.parse(raw)
-    if (!isRecord(parsed) || parsed.version !== JOURNAL_STORAGE_VERSION) {
-      const demo = cloneDemoEntries()
-      saveJournalEntries(demo, storage)
-      return {
-        entries: demo,
-        source: 'recovered-demo',
-        warning:
-          'Gespeicherte Journaldaten waren veraltet oder ungültig und wurden auf die Demo-Daten zurückgesetzt.',
+    if (!isRecord(parsed)) {
+      return recoverDemo(
+        storage,
+        'Gespeicherte Daten waren ungültig und wurden auf die Demo-Daten zurückgesetzt.',
+      )
+    }
+
+    // Migration v1 → v2 (nur Journal)
+    if (parsed.version === 1) {
+      const entries = sanitizeEntries(parsed.entries)
+      if (entries.length === 0) {
+        return recoverDemo(
+          storage,
+          'Gespeicherte Journaldaten enthielten keine gültigen Buchungen und wurden zurückgesetzt.',
+        )
       }
+      const sales = createDemoSalesState()
+      saveWorkspace({ entries, sales }, storage)
+      return {
+        entries,
+        sales,
+        source: 'storage',
+        warning:
+          'Verkaufsdaten wurden ergänzt (Migration von Journal-Persistenz v1).',
+      }
+    }
+
+    if (parsed.version !== JOURNAL_STORAGE_VERSION) {
+      return recoverDemo(
+        storage,
+        'Gespeicherte Daten waren veraltet oder ungültig und wurden auf die Demo-Daten zurückgesetzt.',
+      )
     }
 
     const entries = sanitizeEntries(parsed.entries)
-    if (entries.length === 0) {
-      const demo = cloneDemoEntries()
-      saveJournalEntries(demo, storage)
-      return {
-        entries: demo,
-        source: 'recovered-demo',
-        warning:
-          'Gespeicherte Journaldaten enthielten keine gültigen Buchungen und wurden zurückgesetzt.',
-      }
+    const sales = sanitizeSales(parsed.sales)
+    if (entries.length === 0 || !sales) {
+      return recoverDemo(
+        storage,
+        'Gespeicherte Daten waren unvollständig und wurden auf die Demo-Daten zurückgesetzt.',
+      )
     }
 
-    return { entries, source: 'storage' }
+    return { entries, sales, source: 'storage' }
   } catch {
-    const demo = cloneDemoEntries()
-    saveJournalEntries(demo, storage)
-    return {
-      entries: demo,
-      source: 'recovered-demo',
-      warning:
-        'Gespeicherte Journaldaten konnten nicht gelesen werden und wurden auf die Demo-Daten zurückgesetzt.',
-    }
+    return recoverDemo(
+      storage,
+      'Gespeicherte Daten konnten nicht gelesen werden und wurden auf die Demo-Daten zurückgesetzt.',
+    )
+  }
+}
+
+function recoverDemo(storage: StorageLike, warning: string): WorkspaceLoadResult {
+  const demo = cloneDemoWorkspace()
+  saveWorkspace(demo, storage)
+  return { ...demo, source: 'recovered-demo', warning }
+}
+
+export function loadJournalEntries(storage: StorageLike): JournalLoadResult {
+  const loaded = loadWorkspace(storage)
+  return {
+    entries: loaded.entries,
+    source: loaded.source,
+    warning: loaded.warning,
   }
 }
 
