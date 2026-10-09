@@ -14,29 +14,48 @@ import type {
   ValidationIssue,
 } from '../types/accounting'
 import type {
+  GoodsReceipt,
+  GoodsReceiptLine,
+  PurchaseOrder,
+  PurchaseState,
+  StockMovement,
+  Supplier,
+  VendorInvoice,
+  VendorPayment,
+} from '../types/purchase'
+import type {
   Customer,
   InvoicePayment,
+  Product,
   SalesInvoice,
   SalesState,
 } from '../types/sales'
 import { chartOfAccounts } from '../data/chart-of-accounts'
 import { createJournalEntryId } from '../data/journal-entries'
-import { createId, formatInvoiceNumber } from '../data/sales-demo'
-import { validateJournalEntry } from './validateEntry'
 import {
-  BOOKING_PERIOD_LABEL,
-  computeAccountingTotals,
-  sortEntriesNewestFirst,
-} from './totals'
+  formatGoodsReceiptNumber,
+  formatPurchaseOrderNumber,
+  formatVendorInvoiceNumber,
+} from '../data/purchase-demo'
+import { createId, formatInvoiceNumber } from '../data/sales-demo'
+import { buildVendorInvoiceBookingDrafts } from '../purchase/bookVendorInvoice'
+import { remainingQuantityForLine } from '../purchase/orderStatus'
+import { buildVendorPaymentDraft } from '../purchase/recordVendorPayment'
+import { buildInvoiceBookingDrafts } from '../sales/bookInvoice'
+import { validateInvoiceLine } from '../sales/invoiceMath'
+import { buildPaymentBookingDraft } from '../sales/recordPayment'
 import {
   loadWorkspace,
   resetWorkspace,
   saveWorkspace,
   type JournalLoadSource,
 } from './journalStore'
-import { buildInvoiceBookingDrafts } from '../sales/bookInvoice'
-import { buildPaymentBookingDraft } from '../sales/recordPayment'
-import { validateInvoiceLine } from '../sales/invoiceMath'
+import {
+  BOOKING_PERIOD_LABEL,
+  computeAccountingTotals,
+  sortEntriesNewestFirst,
+} from './totals'
+import { validateJournalEntry } from './validateEntry'
 
 type AddEntryResult =
   | { ok: true; entry: JournalEntry }
@@ -47,6 +66,7 @@ type ActionResult = { ok: true } | { ok: false; message: string }
 interface AccountingContextValue {
   entries: JournalEntry[]
   sales: SalesState
+  purchase: PurchaseState
   periodLabel: string
   totals: ReturnType<typeof computeAccountingTotals>
   persistSource: JournalLoadSource
@@ -55,14 +75,43 @@ interface AccountingContextValue {
   addEntry: (draft: JournalEntryDraft) => AddEntryResult
   resetToDemo: () => void
   upsertCustomer: (customer: Omit<Customer, 'id'> & { id?: string }) => Customer
+  upsertProduct: (product: Omit<Product, 'id'> & { id?: string }) => Product
   saveDraftInvoice: (
-    input: Omit<SalesInvoice, 'id' | 'number' | 'journalEntryIds' | 'createdAt' | 'updatedAt' | 'bookedAt'> & {
-      id?: string
-      number?: string
-    },
+    input: Omit<
+      SalesInvoice,
+      'id' | 'number' | 'journalEntryIds' | 'createdAt' | 'updatedAt' | 'bookedAt'
+    > & { id?: string; number?: string },
   ) => ActionResult & { invoice?: SalesInvoice }
   bookInvoice: (invoiceId: string) => ActionResult
   recordInvoicePayment: (
+    invoiceId: string,
+    input: {
+      date: string
+      amountCents: number
+      bankAccount: '1200' | '1000'
+      reference?: string
+    },
+  ) => ActionResult
+  upsertSupplier: (supplier: Omit<Supplier, 'id'> & { id?: string }) => Supplier
+  savePurchaseOrder: (
+    input: Omit<PurchaseOrder, 'id' | 'number' | 'createdAt' | 'updatedAt'> & {
+      id?: string
+      number?: string
+    },
+  ) => ActionResult & { order?: PurchaseOrder }
+  confirmPurchaseOrder: (orderId: string) => ActionResult
+  recordGoodsReceipt: (
+    orderId: string,
+    input: { receiptDate: string; lines: GoodsReceiptLine[] },
+  ) => ActionResult & { receipt?: GoodsReceipt }
+  saveVendorInvoice: (
+    input: Omit<
+      VendorInvoice,
+      'id' | 'internalNumber' | 'journalEntryIds' | 'createdAt' | 'updatedAt' | 'bookedAt'
+    > & { id?: string; internalNumber?: string },
+  ) => ActionResult & { invoice?: VendorInvoice }
+  bookVendorInvoice: (invoiceId: string) => ActionResult
+  recordVendorPayment: (
     invoiceId: string,
     input: {
       date: string
@@ -92,6 +141,30 @@ function noopStorage() {
   }
 }
 
+function createStockMovementsForSalesInvoice(
+  invoice: SalesInvoice,
+  products: Product[],
+): StockMovement[] {
+  const now = new Date().toISOString()
+  const movements: StockMovement[] = []
+  for (const line of invoice.lines) {
+    if (!line.productId) continue
+    const product = products.find((item) => item.id === line.productId)
+    if (!product?.tracksStock) continue
+    movements.push({
+      id: createId('sm'),
+      productId: line.productId,
+      date: invoice.issueDate,
+      quantityDelta: -line.quantity,
+      sourceType: 'verkauf',
+      sourceId: invoice.id,
+      note: invoice.number,
+      createdAt: now,
+    })
+  }
+  return movements
+}
+
 export function AccountingProvider({ children }: { children: ReactNode }) {
   const initial = useMemo(() => {
     const storage = getBrowserStorage()
@@ -107,6 +180,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
 
   const [entries, setEntries] = useState<JournalEntry[]>(initial.entries)
   const [sales, setSales] = useState<SalesState>(initial.sales)
+  const [purchase, setPurchase] = useState<PurchaseState>(initial.purchase)
   const [persistSource, setPersistSource] = useState<JournalLoadSource>(initial.source)
   const [persistWarning, setPersistWarning] = useState<string | undefined>(
     initial.warning,
@@ -117,42 +191,33 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
     const storage = getBrowserStorage()
     if (!storage) return
     try {
-      saveWorkspace({ entries, sales }, storage)
+      saveWorkspace({ entries, sales, purchase }, storage)
     } catch {
       setPersistWarning(
         'Daten konnten nicht im Browser gespeichert werden (localStorage voll oder blockiert).',
       )
     }
-  }, [entries, sales])
+  }, [entries, sales, purchase])
 
-  const commitDrafts = useCallback((drafts: JournalEntryDraft[]): AddEntryResult => {
-    const created: JournalEntry[] = []
-    for (const draft of drafts) {
-      const result = validateJournalEntry(draft, chartOfAccounts)
-      if (!result.ok) {
-        return result
-      }
-      created.push({
-        ...result.entry,
-        id: createJournalEntryId(),
-        createdAt: new Date().toISOString(),
-      })
+  const addEntry = useCallback((draft: JournalEntryDraft): AddEntryResult => {
+    const result = validateJournalEntry(draft, chartOfAccounts)
+    if (!result.ok) return result
+    const entry: JournalEntry = {
+      ...result.entry,
+      id: createJournalEntryId(),
+      createdAt: new Date().toISOString(),
     }
-    setEntries((prev) => [...created, ...prev])
+    setEntries((prev) => [entry, ...prev])
     setPersistSource('storage')
-    return { ok: true, entry: created[0]! }
+    return { ok: true, entry }
   }, [])
-
-  const addEntry = useCallback(
-    (draft: JournalEntryDraft): AddEntryResult => commitDrafts([draft]),
-    [commitDrafts],
-  )
 
   const resetToDemo = useCallback(() => {
     const storage = getBrowserStorage() ?? noopStorage()
     const demo = resetWorkspace(storage)
     setEntries(demo.entries)
     setSales(demo.sales)
+    setPurchase(demo.purchase)
     setPersistSource('demo')
     setPersistWarning(
       getBrowserStorage()
@@ -186,6 +251,34 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
     [],
   )
 
+  const upsertProduct = useCallback(
+    (input: Omit<Product, 'id'> & { id?: string }): Product => {
+      const product: Product = {
+        id: input.id ?? createId('prod'),
+        sku: input.sku.trim(),
+        name: input.name.trim(),
+        description: input.description?.trim() || undefined,
+        netUnitPriceCents: input.netUnitPriceCents,
+        netPurchasePriceCents: input.netPurchasePriceCents,
+        vatRate: input.vatRate,
+        tracksStock: input.tracksStock,
+        minStockQuantity: input.minStockQuantity,
+      }
+      setSales((prev) => {
+        const exists = prev.products.some((item) => item.id === product.id)
+        return {
+          ...prev,
+          products: exists
+            ? prev.products.map((item) => (item.id === product.id ? product : item))
+            : [...prev.products, product],
+        }
+      })
+      setPersistSource('storage')
+      return product
+    },
+    [],
+  )
+
   const saveDraftInvoice = useCallback(
     (
       input: Omit<
@@ -210,16 +303,13 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
           blocked = true
           return prev
         }
-
         const existing = input.id
           ? prev.invoices.find((invoice) => invoice.id === input.id)
           : undefined
-
         if (existing && existing.journalEntryIds.length > 0) {
           blocked = true
           return prev
         }
-
         const invoice: SalesInvoice = {
           id: existing?.id ?? createId('inv'),
           number:
@@ -235,14 +325,11 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
           updatedAt: now,
         }
         saved = invoice
-
-        const invoices = existing
-          ? prev.invoices.map((item) => (item.id === existing.id ? invoice : item))
-          : [...prev.invoices, invoice]
-
         return {
           ...prev,
-          invoices,
+          invoices: existing
+            ? prev.invoices.map((item) => (item.id === existing.id ? invoice : item))
+            : [...prev.invoices, invoice],
           nextInvoiceSequence: existing
             ? prev.nextInvoiceSequence
             : prev.nextInvoiceSequence + 1,
@@ -256,7 +343,6 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
             'Rechnung konnte nicht gespeichert werden (ungültiger Kunde oder bereits gebucht).',
         }
       }
-
       setPersistSource('storage')
       return { ok: true, invoice: saved }
     },
@@ -275,7 +361,6 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
         if (invoice.journalEntryIds.length > 0) {
           return { ok: false, message: 'Diese Rechnung wurde bereits gebucht.' }
         }
-
         const customer = sales.customers.find((item) => item.id === invoice.customerId)
         const built = buildInvoiceBookingDrafts(invoice, customer)
         if (!built.ok) return built
@@ -297,6 +382,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
         }
         const createdIds = createdEntries.map((entry) => entry.id)
         const bookedAt = new Date().toISOString()
+        const stockMoves = createStockMovementsForSalesInvoice(invoice, sales.products)
 
         let linked = false
         setSales((prev) => {
@@ -317,11 +403,16 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
             ),
           }
         })
-
         if (!linked) {
           return { ok: false, message: 'Diese Rechnung wurde bereits gebucht.' }
         }
 
+        if (stockMoves.length > 0) {
+          setPurchase((prev) => ({
+            ...prev,
+            stockMovements: [...prev.stockMovements, ...stockMoves],
+          }))
+        }
         setEntries((prev) => [...createdEntries, ...prev])
         setPersistSource('storage')
         return { ok: true }
@@ -329,7 +420,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
         bookingLocks.current.delete(`book:${invoiceId}`)
       }
     },
-    [sales.invoices, sales.customers],
+    [sales.invoices, sales.customers, sales.products],
   )
 
   const recordInvoicePayment = useCallback(
@@ -350,10 +441,8 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
       try {
         const invoice = sales.invoices.find((item) => item.id === invoiceId)
         if (!invoice) return { ok: false, message: 'Rechnung nicht gefunden.' }
-
         const built = buildPaymentBookingDraft(invoice, sales.payments, input)
         if (!built.ok) return built
-
         const result = validateJournalEntry(built.draft, chartOfAccounts)
         if (!result.ok) {
           return {
@@ -361,7 +450,6 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
             message: result.issues[0]?.message ?? 'Zahlungsbuchung ungültig.',
           }
         }
-
         const entry: JournalEntry = {
           ...result.entry,
           id: createJournalEntryId(),
@@ -377,7 +465,6 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
           journalEntryId: entry.id,
           createdAt: entry.createdAt,
         }
-
         let accepted = false
         setSales((prev) => {
           const current = prev.invoices.find((item) => item.id === invoiceId)
@@ -395,14 +482,12 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
             ),
           }
         })
-
         if (!accepted) {
           return {
             ok: false,
             message: 'Zahlung konnte nicht gespeichert werden (Status geändert).',
           }
         }
-
         setEntries((prev) => [entry, ...prev])
         setPersistSource('storage')
         return { ok: true }
@@ -413,11 +498,402 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
     [sales.invoices, sales.payments],
   )
 
-  const value = useMemo<AccountingContextValue>(() => {
-    const sorted = sortEntriesNewestFirst(entries)
-    return {
-      entries: sorted,
+  const upsertSupplier = useCallback(
+    (input: Omit<Supplier, 'id'> & { id?: string }): Supplier => {
+      const supplier: Supplier = {
+        id: input.id ?? createId('sup'),
+        number: input.number.trim(),
+        companyName: input.companyName.trim(),
+        contactName: input.contactName?.trim() || undefined,
+        billingAddress: input.billingAddress.trim(),
+        email: input.email?.trim() || undefined,
+      }
+      setPurchase((prev) => {
+        const exists = prev.suppliers.some((item) => item.id === supplier.id)
+        return {
+          ...prev,
+          suppliers: exists
+            ? prev.suppliers.map((item) => (item.id === supplier.id ? supplier : item))
+            : [...prev.suppliers, supplier],
+        }
+      })
+      setPersistSource('storage')
+      return supplier
+    },
+    [],
+  )
+
+  const savePurchaseOrder = useCallback(
+    (
+      input: Omit<PurchaseOrder, 'id' | 'number' | 'createdAt' | 'updatedAt'> & {
+        id?: string
+        number?: string
+      },
+    ): ActionResult & { order?: PurchaseOrder } => {
+      if (input.lines.length === 0) {
+        return { ok: false, message: 'Mindestens eine Bestellposition ist erforderlich.' }
+      }
+      const now = new Date().toISOString()
+      let saved: PurchaseOrder | undefined
+      let blocked = false
+      setPurchase((prev) => {
+        if (!prev.suppliers.some((supplier) => supplier.id === input.supplierId)) {
+          blocked = true
+          return prev
+        }
+        const existing = input.id
+          ? prev.orders.find((order) => order.id === input.id)
+          : undefined
+        if (existing?.confirmedAt) {
+          blocked = true
+          return prev
+        }
+        const order: PurchaseOrder = {
+          id: existing?.id ?? createId('po'),
+          number:
+            existing?.number ??
+            input.number ??
+            formatPurchaseOrderNumber(prev.nextOrderSequence),
+          supplierId: input.supplierId,
+          orderDate: input.orderDate,
+          lines: input.lines.map((line) => ({ ...line })),
+          confirmedAt: existing?.confirmedAt,
+          createdAt: existing?.createdAt ?? now,
+          updatedAt: now,
+        }
+        saved = order
+        return {
+          ...prev,
+          orders: existing
+            ? prev.orders.map((item) => (item.id === existing.id ? order : item))
+            : [...prev.orders, order],
+          nextOrderSequence: existing
+            ? prev.nextOrderSequence
+            : prev.nextOrderSequence + 1,
+        }
+      })
+      if (blocked || !saved) {
+        return {
+          ok: false,
+          message: 'Bestellung konnte nicht gespeichert werden.',
+        }
+      }
+      setPersistSource('storage')
+      return { ok: true, order: saved }
+    },
+    [],
+  )
+
+  const confirmPurchaseOrder = useCallback((orderId: string): ActionResult => {
+    let ok = false
+    setPurchase((prev) => {
+      const order = prev.orders.find((item) => item.id === orderId)
+      if (!order || order.confirmedAt) return prev
+      ok = true
+      const confirmedAt = new Date().toISOString()
+      return {
+        ...prev,
+        orders: prev.orders.map((item) =>
+          item.id === orderId
+            ? { ...item, confirmedAt, updatedAt: confirmedAt }
+            : item,
+        ),
+      }
+    })
+    if (!ok) return { ok: false, message: 'Bestellung nicht gefunden oder bereits bestätigt.' }
+    setPersistSource('storage')
+    return { ok: true }
+  }, [])
+
+  const recordGoodsReceipt = useCallback(
+    (
+      orderId: string,
+      input: { receiptDate: string; lines: GoodsReceiptLine[] },
+    ): ActionResult & { receipt?: GoodsReceipt } => {
+      const order = purchase.orders.find((item) => item.id === orderId)
+      if (!order) return { ok: false, message: 'Bestellung nicht gefunden.' }
+      if (!order.confirmedAt) {
+        return { ok: false, message: 'Wareneingang nur für bestätigte Bestellungen.' }
+      }
+      if (input.lines.length === 0) {
+        return { ok: false, message: 'Bitte gelieferte Mengen angeben.' }
+      }
+      for (const line of input.lines) {
+        if (!(line.quantity > 0)) {
+          return { ok: false, message: 'Liefermengen müssen größer als 0 sein.' }
+        }
+        const remaining = remainingQuantityForLine(order, line.orderLineId, purchase.receipts)
+        if (line.quantity > remaining) {
+          return {
+            ok: false,
+            message: `Überlieferung verhindert (max. noch ${remaining}).`,
+          }
+        }
+      }
+
+      const now = new Date().toISOString()
+      let receipt: GoodsReceipt | undefined
+      const stockMoves: StockMovement[] = []
+
+      setPurchase((prev) => {
+        const current = prev.orders.find((item) => item.id === orderId)
+        if (!current?.confirmedAt) return prev
+        for (const line of input.lines) {
+          const remaining = remainingQuantityForLine(current, line.orderLineId, prev.receipts)
+          if (line.quantity > remaining) return prev
+        }
+        receipt = {
+          id: createId('gr'),
+          number: formatGoodsReceiptNumber(prev.nextReceiptSequence),
+          orderId,
+          receiptDate: input.receiptDate,
+          lines: input.lines.map((line) => ({ ...line })),
+          createdAt: now,
+        }
+        for (const line of input.lines) {
+          const orderLine = current.lines.find((item) => item.id === line.orderLineId)
+          if (!orderLine?.productId) continue
+          const product = sales.products.find((item) => item.id === orderLine.productId)
+          if (!product?.tracksStock) continue
+          stockMoves.push({
+            id: createId('sm'),
+            productId: orderLine.productId,
+            date: input.receiptDate,
+            quantityDelta: line.quantity,
+            sourceType: 'wareneingang',
+            sourceId: receipt.id,
+            note: receipt.number,
+            createdAt: now,
+          })
+        }
+        return {
+          ...prev,
+          receipts: [...prev.receipts, receipt],
+          stockMovements: [...prev.stockMovements, ...stockMoves],
+          nextReceiptSequence: prev.nextReceiptSequence + 1,
+          orders: prev.orders.map((item) =>
+            item.id === orderId ? { ...item, updatedAt: now } : item,
+          ),
+        }
+      })
+
+      if (!receipt) {
+        return { ok: false, message: 'Wareneingang konnte nicht gespeichert werden.' }
+      }
+      setPersistSource('storage')
+      return { ok: true, receipt }
+    },
+    [purchase.orders, purchase.receipts, sales.products],
+  )
+
+  const saveVendorInvoice = useCallback(
+    (
+      input: Omit<
+        VendorInvoice,
+        'id' | 'internalNumber' | 'journalEntryIds' | 'createdAt' | 'updatedAt' | 'bookedAt'
+      > & { id?: string; internalNumber?: string },
+    ): ActionResult & { invoice?: VendorInvoice } => {
+      if (input.lines.length === 0) {
+        return { ok: false, message: 'Mindestens eine Position ist erforderlich.' }
+      }
+      const now = new Date().toISOString()
+      let saved: VendorInvoice | undefined
+      let blocked = false
+      setPurchase((prev) => {
+        if (!prev.suppliers.some((supplier) => supplier.id === input.supplierId)) {
+          blocked = true
+          return prev
+        }
+        const existing = input.id
+          ? prev.vendorInvoices.find((invoice) => invoice.id === input.id)
+          : undefined
+        if (existing && existing.journalEntryIds.length > 0) {
+          blocked = true
+          return prev
+        }
+        const invoice: VendorInvoice = {
+          id: existing?.id ?? createId('vinv'),
+          externalNumber: input.externalNumber.trim(),
+          internalNumber:
+            existing?.internalNumber ??
+            input.internalNumber ??
+            formatVendorInvoiceNumber(prev.nextVendorInvoiceSequence),
+          supplierId: input.supplierId,
+          issueDate: input.issueDate,
+          dueDate: input.dueDate,
+          lines: input.lines.map((line) => ({ ...line })),
+          orderId: input.orderId,
+          journalEntryIds: [],
+          createdAt: existing?.createdAt ?? now,
+          updatedAt: now,
+        }
+        saved = invoice
+        return {
+          ...prev,
+          vendorInvoices: existing
+            ? prev.vendorInvoices.map((item) =>
+                item.id === existing.id ? invoice : item,
+              )
+            : [...prev.vendorInvoices, invoice],
+          nextVendorInvoiceSequence: existing
+            ? prev.nextVendorInvoiceSequence
+            : prev.nextVendorInvoiceSequence + 1,
+        }
+      })
+      if (blocked || !saved) {
+        return {
+          ok: false,
+          message: 'Eingangsrechnung konnte nicht gespeichert werden.',
+        }
+      }
+      setPersistSource('storage')
+      return { ok: true, invoice: saved }
+    },
+    [],
+  )
+
+  const bookVendorInvoice = useCallback(
+    (invoiceId: string): ActionResult => {
+      if (bookingLocks.current.has(`vbook:${invoiceId}`)) {
+        return { ok: false, message: 'Buchung läuft bereits.' }
+      }
+      bookingLocks.current.add(`vbook:${invoiceId}`)
+      try {
+        const invoice = purchase.vendorInvoices.find((item) => item.id === invoiceId)
+        if (!invoice) return { ok: false, message: 'Eingangsrechnung nicht gefunden.' }
+        if (invoice.journalEntryIds.length > 0) {
+          return { ok: false, message: 'Diese Eingangsrechnung wurde bereits gebucht.' }
+        }
+        const supplier = purchase.suppliers.find((item) => item.id === invoice.supplierId)
+        const built = buildVendorInvoiceBookingDrafts(invoice, supplier)
+        if (!built.ok) return built
+
+        const createdEntries: JournalEntry[] = []
+        for (const draft of built.drafts) {
+          const result = validateJournalEntry(draft, chartOfAccounts)
+          if (!result.ok) {
+            return {
+              ok: false,
+              message: result.issues[0]?.message ?? 'Buchung ungültig.',
+            }
+          }
+          createdEntries.push({
+            ...result.entry,
+            id: createJournalEntryId(),
+            createdAt: new Date().toISOString(),
+          })
+        }
+        const createdIds = createdEntries.map((entry) => entry.id)
+        const bookedAt = new Date().toISOString()
+        let linked = false
+        setPurchase((prev) => {
+          const current = prev.vendorInvoices.find((item) => item.id === invoiceId)
+          if (!current || current.journalEntryIds.length > 0) return prev
+          linked = true
+          return {
+            ...prev,
+            vendorInvoices: prev.vendorInvoices.map((item) =>
+              item.id === invoiceId
+                ? {
+                    ...item,
+                    journalEntryIds: createdIds,
+                    bookedAt,
+                    updatedAt: bookedAt,
+                  }
+                : item,
+            ),
+          }
+        })
+        if (!linked) {
+          return { ok: false, message: 'Diese Eingangsrechnung wurde bereits gebucht.' }
+        }
+        setEntries((prev) => [...createdEntries, ...prev])
+        setPersistSource('storage')
+        return { ok: true }
+      } finally {
+        bookingLocks.current.delete(`vbook:${invoiceId}`)
+      }
+    },
+    [purchase.vendorInvoices, purchase.suppliers],
+  )
+
+  const recordVendorPayment = useCallback(
+    (
+      invoiceId: string,
+      input: {
+        date: string
+        amountCents: number
+        bankAccount: '1200' | '1000'
+        reference?: string
+      },
+    ): ActionResult => {
+      const lockKey = `vpay:${invoiceId}`
+      if (bookingLocks.current.has(lockKey)) {
+        return { ok: false, message: 'Zahlung wird bereits verarbeitet.' }
+      }
+      bookingLocks.current.add(lockKey)
+      try {
+        const invoice = purchase.vendorInvoices.find((item) => item.id === invoiceId)
+        if (!invoice) return { ok: false, message: 'Eingangsrechnung nicht gefunden.' }
+        const built = buildVendorPaymentDraft(invoice, purchase.vendorPayments, input)
+        if (!built.ok) return built
+        const result = validateJournalEntry(built.draft, chartOfAccounts)
+        if (!result.ok) {
+          return {
+            ok: false,
+            message: result.issues[0]?.message ?? 'Zahlungsbuchung ungültig.',
+          }
+        }
+        const entry: JournalEntry = {
+          ...result.entry,
+          id: createJournalEntryId(),
+          createdAt: new Date().toISOString(),
+        }
+        const payment: VendorPayment = {
+          id: createId('vpay'),
+          invoiceId,
+          date: input.date,
+          amountCents: built.amountCents,
+          bankAccount: input.bankAccount,
+          reference: input.reference?.trim() || undefined,
+          journalEntryId: entry.id,
+          createdAt: entry.createdAt,
+        }
+        let accepted = false
+        setPurchase((prev) => {
+          const current = prev.vendorInvoices.find((item) => item.id === invoiceId)
+          if (!current || current.journalEntryIds.length === 0) return prev
+          const openCheck = buildVendorPaymentDraft(current, prev.vendorPayments, input)
+          if (!openCheck.ok) return prev
+          accepted = true
+          return {
+            ...prev,
+            vendorPayments: [...prev.vendorPayments, payment],
+            vendorInvoices: prev.vendorInvoices.map((item) =>
+              item.id === invoiceId
+                ? { ...item, updatedAt: new Date().toISOString() }
+                : item,
+            ),
+          }
+        })
+        if (!accepted) {
+          return { ok: false, message: 'Zahlung konnte nicht gespeichert werden.' }
+        }
+        setEntries((prev) => [entry, ...prev])
+        setPersistSource('storage')
+        return { ok: true }
+      } finally {
+        bookingLocks.current.delete(lockKey)
+      }
+    },
+    [purchase.vendorInvoices, purchase.vendorPayments],
+  )
+
+  const value = useMemo<AccountingContextValue>(
+    () => ({
+      entries: sortEntriesNewestFirst(entries),
       sales,
+      purchase,
       periodLabel: BOOKING_PERIOD_LABEL,
       totals: computeAccountingTotals(entries, BOOKING_PERIOD_LABEL),
       persistSource,
@@ -426,22 +902,40 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
       addEntry,
       resetToDemo,
       upsertCustomer,
+      upsertProduct,
       saveDraftInvoice,
       bookInvoice,
       recordInvoicePayment,
-    }
-  }, [
-    entries,
-    sales,
-    persistSource,
-    persistWarning,
-    addEntry,
-    resetToDemo,
-    upsertCustomer,
-    saveDraftInvoice,
-    bookInvoice,
-    recordInvoicePayment,
-  ])
+      upsertSupplier,
+      savePurchaseOrder,
+      confirmPurchaseOrder,
+      recordGoodsReceipt,
+      saveVendorInvoice,
+      bookVendorInvoice,
+      recordVendorPayment,
+    }),
+    [
+      entries,
+      sales,
+      purchase,
+      persistSource,
+      persistWarning,
+      addEntry,
+      resetToDemo,
+      upsertCustomer,
+      upsertProduct,
+      saveDraftInvoice,
+      bookInvoice,
+      recordInvoicePayment,
+      upsertSupplier,
+      savePurchaseOrder,
+      confirmPurchaseOrder,
+      recordGoodsReceipt,
+      saveVendorInvoice,
+      bookVendorInvoice,
+      recordVendorPayment,
+    ],
+  )
 
   return (
     <AccountingContext.Provider value={value}>{children}</AccountingContext.Provider>

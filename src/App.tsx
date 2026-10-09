@@ -9,7 +9,20 @@ import {
   NewEntryPage,
 } from './pages/BuchhaltungPage'
 import { DashboardPage } from './pages/DashboardPage'
-import { EinkaufPage } from './pages/EinkaufPage'
+import {
+  EinkaufLayout,
+  EinkaufOverviewPage,
+  GoodsReceiptsPage,
+  NewOrderPage,
+  NewVendorInvoicePage,
+  OrderDetailPage,
+  OrdersPage,
+  PurchaseProductsPage,
+  SuppliersPage,
+  VendorInvoiceDetailPage,
+  VendorInvoicesPage,
+  VendorPaymentsPage,
+} from './pages/EinkaufPage'
 import { EinstellungenPage } from './pages/EinstellungenPage'
 import { KontaktePage } from './pages/KontaktePage'
 import { LagerPage } from './pages/LagerPage'
@@ -41,7 +54,22 @@ export default function App() {
               <Route path="kunden" element={<CustomersPage />} />
               <Route path="produkte" element={<ProductsPage />} />
             </Route>
-            <Route path="einkauf" element={<EinkaufPage />} />
+            <Route path="einkauf" element={<EinkaufLayout />}>
+              <Route index element={<EinkaufOverviewPage />} />
+              <Route path="bestellungen" element={<OrdersPage />} />
+              <Route path="bestellungen/neu" element={<NewOrderPage />} />
+              <Route path="bestellungen/:orderId" element={<OrderDetailPage />} />
+              <Route path="wareneingaenge" element={<GoodsReceiptsPage />} />
+              <Route path="rechnungen" element={<VendorInvoicesPage />} />
+              <Route path="rechnungen/neu" element={<NewVendorInvoicePage />} />
+              <Route
+                path="rechnungen/:invoiceId"
+                element={<VendorInvoiceDetailPage />}
+              />
+              <Route path="zahlungen" element={<VendorPaymentsPage />} />
+              <Route path="lieferanten" element={<SuppliersPage />} />
+              <Route path="produkte" element={<PurchaseProductsPage />} />
+            </Route>
             <Route path="lager" element={<LagerPage />} />
             <Route path="kontakte" element={<KontaktePage />} />
             <Route path="berichte" element={<BerichtePage />} />

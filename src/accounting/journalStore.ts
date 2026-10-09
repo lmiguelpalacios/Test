@@ -1,12 +1,14 @@
 import type { JournalEntry, JournalLine, VatRate } from '../types/accounting'
-import type { SalesState } from '../types/sales'
+import type { PurchaseState } from '../types/purchase'
+import type { Product, SalesState } from '../types/sales'
 import { initialJournalEntries } from '../data/journal-entries'
+import { createDemoPurchaseState } from '../data/purchase-demo'
 import { createDemoSalesState } from '../data/sales-demo'
 import { isBalanced } from './money'
 import { sumLines } from './validateEntry'
 
 export const JOURNAL_STORAGE_KEY = 'nordlicht.uebungsunternehmen.journal.v1'
-export const JOURNAL_STORAGE_VERSION = 2 as const
+export const JOURNAL_STORAGE_VERSION = 3 as const
 
 export interface StorageLike {
   getItem(key: string): string | null
@@ -19,16 +21,15 @@ export interface WorkspacePersistPayload {
   savedAt: string
   entries: JournalEntry[]
   sales: SalesState
+  purchase: PurchaseState
 }
-
-/** @deprecated Alias — Payload heißt jetzt WorkspacePersistPayload */
-export type JournalPersistPayload = WorkspacePersistPayload
 
 export type JournalLoadSource = 'storage' | 'demo' | 'recovered-demo'
 
 export interface WorkspaceLoadResult {
   entries: JournalEntry[]
   sales: SalesState
+  purchase: PurchaseState
   source: JournalLoadSource
   warning?: string
 }
@@ -100,6 +101,36 @@ export function sanitizeEntries(raw: unknown): JournalEntry[] {
   return entries
 }
 
+function normalizeProduct(value: unknown): Product | null {
+  if (!isRecord(value)) return null
+  if (
+    typeof value.id !== 'string' ||
+    typeof value.sku !== 'string' ||
+    typeof value.name !== 'string' ||
+    !isNonNegInt(value.netUnitPriceCents) ||
+    !isVatRate(value.vatRate)
+  ) {
+    return null
+  }
+  const purchase =
+    isNonNegInt(value.netPurchasePriceCents)
+      ? value.netPurchasePriceCents
+      : Math.round(value.netUnitPriceCents * 0.6)
+  return {
+    id: value.id,
+    sku: value.sku,
+    name: value.name,
+    description: typeof value.description === 'string' ? value.description : undefined,
+    netUnitPriceCents: value.netUnitPriceCents,
+    netPurchasePriceCents: purchase,
+    vatRate: value.vatRate,
+    tracksStock: typeof value.tracksStock === 'boolean' ? value.tracksStock : true,
+    minStockQuantity: isNonNegInt(value.minStockQuantity)
+      ? value.minStockQuantity
+      : undefined,
+  }
+}
+
 function sanitizeSales(raw: unknown): SalesState | null {
   if (!isRecord(raw)) return null
   if (!Array.isArray(raw.customers) || !Array.isArray(raw.products)) return null
@@ -110,14 +141,14 @@ function sanitizeSales(raw: unknown): SalesState | null {
   }
 
   const customers = raw.customers.filter(isValidCustomer)
-  const products = raw.products.filter(isValidProduct)
+  const products = raw.products
+    .map(normalizeProduct)
+    .filter((product): product is Product => product !== null)
   const invoices = raw.invoices.filter(isValidInvoice)
   const payments = raw.payments.filter(isValidPayment)
 
   if (customers.length === 0 || products.length === 0) return null
 
-  // Gebuchte Rechnungen mit fehlendem Journal-Link nicht stillschweigend verwerfen:
-  // ungültige Rechnungen werden gefiltert; gebuchte behalten journalEntryIds unverändert.
   return {
     customers,
     products,
@@ -129,26 +160,50 @@ function sanitizeSales(raw: unknown): SalesState | null {
   }
 }
 
+function sanitizePurchase(raw: unknown): PurchaseState | null {
+  if (!isRecord(raw)) return null
+  if (!Array.isArray(raw.suppliers) || !Array.isArray(raw.orders)) return null
+  if (!Array.isArray(raw.receipts) || !Array.isArray(raw.vendorInvoices)) return null
+  if (!Array.isArray(raw.vendorPayments) || !Array.isArray(raw.stockMovements)) return null
+  if (
+    !Number.isInteger(raw.nextOrderSequence) ||
+    !Number.isInteger(raw.nextReceiptSequence) ||
+    !Number.isInteger(raw.nextVendorInvoiceSequence)
+  ) {
+    return null
+  }
+
+  const suppliers = raw.suppliers.filter(isValidSupplier)
+  const orders = raw.orders.filter(isValidOrder)
+  const receipts = raw.receipts.filter(isValidReceipt)
+  const vendorInvoices = raw.vendorInvoices.filter(isValidVendorInvoice)
+  const vendorPayments = raw.vendorPayments.filter(isValidVendorPayment)
+  const stockMovements = raw.stockMovements.filter(isValidStockMovement)
+
+  if (suppliers.length === 0) return null
+
+  return {
+    suppliers,
+    orders,
+    receipts,
+    vendorInvoices,
+    vendorPayments: vendorPayments.filter((payment) =>
+      vendorInvoices.some((invoice) => invoice.id === payment.invoiceId),
+    ),
+    stockMovements,
+    nextOrderSequence: raw.nextOrderSequence as number,
+    nextReceiptSequence: raw.nextReceiptSequence as number,
+    nextVendorInvoiceSequence: raw.nextVendorInvoiceSequence as number,
+  }
+}
+
 function isValidCustomer(value: unknown): value is SalesState['customers'][number] {
   if (!isRecord(value)) return false
   return (
     typeof value.id === 'string' &&
     typeof value.number === 'string' &&
     typeof value.companyName === 'string' &&
-    typeof value.billingAddress === 'string' &&
-    (value.contactName === undefined || typeof value.contactName === 'string') &&
-    (value.email === undefined || typeof value.email === 'string')
-  )
-}
-
-function isValidProduct(value: unknown): value is SalesState['products'][number] {
-  if (!isRecord(value)) return false
-  return (
-    typeof value.id === 'string' &&
-    typeof value.sku === 'string' &&
-    typeof value.name === 'string' &&
-    isNonNegInt(value.netUnitPriceCents) &&
-    isVatRate(value.vatRate)
+    typeof value.billingAddress === 'string'
   )
 }
 
@@ -188,6 +243,112 @@ function isValidPayment(value: unknown): value is SalesState['payments'][number]
   )
 }
 
+function isValidSupplier(value: unknown): value is PurchaseState['suppliers'][number] {
+  if (!isRecord(value)) return false
+  return (
+    typeof value.id === 'string' &&
+    typeof value.number === 'string' &&
+    typeof value.companyName === 'string' &&
+    typeof value.billingAddress === 'string'
+  )
+}
+
+function isValidOrder(value: unknown): value is PurchaseState['orders'][number] {
+  if (!isRecord(value)) return false
+  if (typeof value.id !== 'string' || typeof value.number !== 'string') return false
+  if (typeof value.supplierId !== 'string' || typeof value.orderDate !== 'string') return false
+  if (!Array.isArray(value.lines) || value.lines.length === 0) return false
+  if (typeof value.createdAt !== 'string' || typeof value.updatedAt !== 'string') return false
+  return value.lines.every((line) => {
+    if (!isRecord(line)) return false
+    return (
+      typeof line.id === 'string' &&
+      typeof line.description === 'string' &&
+      typeof line.quantity === 'number' &&
+      line.quantity > 0 &&
+      isNonNegInt(line.netUnitPriceCents) &&
+      isVatRate(line.vatRate) &&
+      typeof line.expenseAccount === 'string'
+    )
+  })
+}
+
+function isValidReceipt(value: unknown): value is PurchaseState['receipts'][number] {
+  if (!isRecord(value)) return false
+  if (typeof value.id !== 'string' || typeof value.number !== 'string') return false
+  if (typeof value.orderId !== 'string' || typeof value.receiptDate !== 'string') return false
+  if (!Array.isArray(value.lines) || value.lines.length === 0) return false
+  if (typeof value.createdAt !== 'string') return false
+  return value.lines.every((line) => {
+    if (!isRecord(line)) return false
+    return (
+      typeof line.orderLineId === 'string' &&
+      typeof line.quantity === 'number' &&
+      line.quantity > 0
+    )
+  })
+}
+
+function isValidVendorInvoice(
+  value: unknown,
+): value is PurchaseState['vendorInvoices'][number] {
+  if (!isRecord(value)) return false
+  if (typeof value.id !== 'string') return false
+  if (typeof value.externalNumber !== 'string' || typeof value.internalNumber !== 'string') {
+    return false
+  }
+  if (typeof value.supplierId !== 'string') return false
+  if (typeof value.issueDate !== 'string' || typeof value.dueDate !== 'string') return false
+  if (!Array.isArray(value.lines) || value.lines.length === 0) return false
+  if (!Array.isArray(value.journalEntryIds)) return false
+  if (!value.journalEntryIds.every((id) => typeof id === 'string')) return false
+  if (typeof value.createdAt !== 'string' || typeof value.updatedAt !== 'string') return false
+  return value.lines.every((line) => {
+    if (!isRecord(line)) return false
+    return (
+      typeof line.id === 'string' &&
+      typeof line.description === 'string' &&
+      typeof line.quantity === 'number' &&
+      line.quantity > 0 &&
+      isNonNegInt(line.netUnitPriceCents) &&
+      isVatRate(line.vatRate) &&
+      typeof line.expenseAccount === 'string'
+    )
+  })
+}
+
+function isValidVendorPayment(
+  value: unknown,
+): value is PurchaseState['vendorPayments'][number] {
+  if (!isRecord(value)) return false
+  return (
+    typeof value.id === 'string' &&
+    typeof value.invoiceId === 'string' &&
+    typeof value.date === 'string' &&
+    isNonNegInt(value.amountCents) &&
+    value.amountCents > 0 &&
+    (value.bankAccount === '1200' || value.bankAccount === '1000') &&
+    typeof value.journalEntryId === 'string' &&
+    typeof value.createdAt === 'string'
+  )
+}
+
+function isValidStockMovement(
+  value: unknown,
+): value is PurchaseState['stockMovements'][number] {
+  if (!isRecord(value)) return false
+  return (
+    typeof value.id === 'string' &&
+    typeof value.productId === 'string' &&
+    typeof value.date === 'string' &&
+    typeof value.quantityDelta === 'number' &&
+    value.quantityDelta !== 0 &&
+    typeof value.sourceType === 'string' &&
+    typeof value.sourceId === 'string' &&
+    typeof value.createdAt === 'string'
+  )
+}
+
 export function cloneDemoEntries(): JournalEntry[] {
   return initialJournalEntries.map((entry) => ({
     ...entry,
@@ -198,15 +359,17 @@ export function cloneDemoEntries(): JournalEntry[] {
 export function cloneDemoWorkspace(): {
   entries: JournalEntry[]
   sales: SalesState
+  purchase: PurchaseState
 } {
   return {
     entries: cloneDemoEntries(),
     sales: createDemoSalesState(),
+    purchase: createDemoPurchaseState(),
   }
 }
 
 export function saveWorkspace(
-  data: { entries: JournalEntry[]; sales: SalesState },
+  data: { entries: JournalEntry[]; sales: SalesState; purchase: PurchaseState },
   storage: StorageLike,
 ): void {
   const payload: WorkspacePersistPayload = {
@@ -214,17 +377,18 @@ export function saveWorkspace(
     savedAt: new Date().toISOString(),
     entries: data.entries,
     sales: data.sales,
+    purchase: data.purchase,
   }
   storage.setItem(JOURNAL_STORAGE_KEY, JSON.stringify(payload))
 }
 
-/** Speichert Journal inkl. unverändertem/angehängtem Sales-Stand. */
 export function saveJournalEntries(
   entries: JournalEntry[],
   storage: StorageLike,
   sales: SalesState = createDemoSalesState(),
+  purchase: PurchaseState = createDemoPurchaseState(),
 ): void {
-  saveWorkspace({ entries, sales }, storage)
+  saveWorkspace({ entries, sales, purchase }, storage)
 }
 
 export function clearJournalStorage(storage: StorageLike): void {
@@ -234,6 +398,7 @@ export function clearJournalStorage(storage: StorageLike): void {
 export function resetWorkspace(storage: StorageLike): {
   entries: JournalEntry[]
   sales: SalesState
+  purchase: PurchaseState
 } {
   const demo = cloneDemoWorkspace()
   saveWorkspace(demo, storage)
@@ -261,7 +426,6 @@ export function loadWorkspace(storage: StorageLike): WorkspaceLoadResult {
       )
     }
 
-    // Migration v1 → v2 (nur Journal)
     if (parsed.version === 1) {
       const entries = sanitizeEntries(parsed.entries)
       if (entries.length === 0) {
@@ -271,13 +435,34 @@ export function loadWorkspace(storage: StorageLike): WorkspaceLoadResult {
         )
       }
       const sales = createDemoSalesState()
-      saveWorkspace({ entries, sales }, storage)
+      const purchase = createDemoPurchaseState()
+      saveWorkspace({ entries, sales, purchase }, storage)
       return {
         entries,
         sales,
+        purchase,
         source: 'storage',
-        warning:
-          'Verkaufsdaten wurden ergänzt (Migration von Journal-Persistenz v1).',
+        warning: 'Verkauf/Einkauf wurden ergänzt (Migration von Persistenz v1).',
+      }
+    }
+
+    if (parsed.version === 2) {
+      const entries = sanitizeEntries(parsed.entries)
+      const sales = sanitizeSales(parsed.sales)
+      if (entries.length === 0 || !sales) {
+        return recoverDemo(
+          storage,
+          'Gespeicherte Daten waren unvollständig und wurden zurückgesetzt.',
+        )
+      }
+      const purchase = createDemoPurchaseState()
+      saveWorkspace({ entries, sales, purchase }, storage)
+      return {
+        entries,
+        sales,
+        purchase,
+        source: 'storage',
+        warning: 'Einkaufsdaten wurden ergänzt (Migration von Persistenz v2).',
       }
     }
 
@@ -290,14 +475,15 @@ export function loadWorkspace(storage: StorageLike): WorkspaceLoadResult {
 
     const entries = sanitizeEntries(parsed.entries)
     const sales = sanitizeSales(parsed.sales)
-    if (entries.length === 0 || !sales) {
+    const purchase = sanitizePurchase(parsed.purchase)
+    if (entries.length === 0 || !sales || !purchase) {
       return recoverDemo(
         storage,
         'Gespeicherte Daten waren unvollständig und wurden auf die Demo-Daten zurückgesetzt.',
       )
     }
 
-    return { entries, sales, source: 'storage' }
+    return { entries, sales, purchase, source: 'storage' }
   } catch {
     return recoverDemo(
       storage,

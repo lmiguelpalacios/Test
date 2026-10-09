@@ -41,7 +41,10 @@ export const demoProducts: Product[] = [
     name: 'Gastro-Geschirr Set Classic',
     description: '12-teiliges Set für Kantinen',
     netUnitPriceCents: 89_00,
+    netPurchasePriceCents: 55_00,
     vatRate: 19,
+    tracksStock: true,
+    minStockQuantity: 20,
   },
   {
     id: 'prod-002',
@@ -49,7 +52,10 @@ export const demoProducts: Product[] = [
     name: 'Servietten Recycling 2-lagig',
     description: 'Karton à 2000 Stück',
     netUnitPriceCents: 24_50,
+    netPurchasePriceCents: 14_50,
     vatRate: 19,
+    tracksStock: true,
+    minStockQuantity: 40,
   },
   {
     id: 'prod-003',
@@ -57,7 +63,10 @@ export const demoProducts: Product[] = [
     name: 'Bio-Gewürzmischung Nordisch',
     description: '500 g Gebinde',
     netUnitPriceCents: 12_80,
+    netPurchasePriceCents: 7_20,
     vatRate: 7,
+    tracksStock: true,
+    minStockQuantity: 15,
   },
   {
     id: 'prod-004',
@@ -65,7 +74,9 @@ export const demoProducts: Product[] = [
     name: 'Lieferung Region Kiel',
     description: 'Zustellung innerhalb 50 km',
     netUnitPriceCents: 35_00,
+    netPurchasePriceCents: 0,
     vatRate: 19,
+    tracksStock: false,
   },
 ]
 

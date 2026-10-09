@@ -14,8 +14,14 @@ export interface Product {
   sku: string
   name: string
   description?: string
+  /** Netto-Verkaufspreis */
   netUnitPriceCents: number
+  /** Netto-Einkaufspreis */
+  netPurchasePriceCents: number
   vatRate: VatRate
+  /** Ob Bestandsbewegungen geführt werden (Dienstleistungen: false). */
+  tracksStock: boolean
+  minStockQuantity?: number
 }
 
 export type InvoiceStatus = 'entwurf' | 'offen' | 'teilweise_bezahlt' | 'bezahlt'

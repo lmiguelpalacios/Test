@@ -31,12 +31,14 @@ npm run typecheck
 npm test
 ```
 
-### Buchhaltung, Verkauf & Persistenz
+### Buchhaltung, Verkauf, Einkauf & Persistenz
 
-- Gemeinsame Journal-Datenquelle (`AccountingProvider` + Workspace-`localStorage` v2)
+- Gemeinsame Journal-Datenquelle (`AccountingProvider` + Workspace-`localStorage` v3)
 - Verkauf: Kunden, Produkte, Ausgangsrechnungen (Entwurf → buchen → Zahlungen)
-- Rechnungsbuchung ins zentrale Journal (1400 / Erlöse / USt); Zahlungen Bank↔1400
-- Speichern/Laden inkl. Verkaufsdaten; Reset auf Demo in der Buchhaltung
+- Einkauf: Lieferanten, Bestellungen, Wareneingang, Eingangsrechnungen, Zahlungsausgänge
+- Buchungen nur über zentrales Journal (Forderungen/Verbindlichkeiten, USt/VSt, Bank)
+- Gemeinsamer Produktkatalog; Bestand aus Bewegungen (WE +, Verkauf −)
+- Speichern/Laden inkl. Verkauf + Einkauf; Reset auf Demo in der Buchhaltung
 - Dashboard: Journal-Kennzahlen aus derselben Quelle; YTD-Grafik bleibt separate Demo
 
 
@@ -44,13 +46,15 @@ npm test
 
 ```
 src/
-  components/   # wiederverwendbare UI (KPI, Chart, Aktivitäten, …)
+  accounting/   # Journal, Persistenz, AccountingProvider
+  components/   # UI (Buchhaltung, Verkauf, Einkauf, …)
   data/         # Demo-Daten
   layout/       # Sidebar, Topbar, App-Layout
-  lib/          # Formatierung
+  purchase/     # Einkaufslogik (Status, Bestand, Buchungsentwürfe)
+  sales/        # Verkaufslogik
   pages/        # Seiten je Bereich
   types/        # TypeScript-Typen
-supabase/       # Stub für spätere Backend-Anbindung (nicht aktiv)
+supabase/       # Stub — nicht angebunden
 ```
 
 ## Bereiche
@@ -60,8 +64,8 @@ supabase/       # Stub für spätere Backend-Anbindung (nicht aktiv)
 | Dashboard      | Demo-Kennzahlen, Grafik, Aktivitäten        |
 | Buchhaltung    | Übersicht, Kontenplan, Buchungserfassung    |
 | Verkauf        | Kunden, Produkte, Rechnungen, Zahlungen     |
-| Einkauf        | Platzhalter                                 |
-| Lager          | Platzhalter                                 |
+| Einkauf        | Lieferanten, Bestellungen, WE, ER, Zahlungen|
+| Lager          | Verweis auf Produkte/Bestände im Einkauf    |
 | Kontakte       | Platzhalter                                 |
 | Berichte       | Platzhalter                                 |
 | Einstellungen  | Platzhalter                                 |
