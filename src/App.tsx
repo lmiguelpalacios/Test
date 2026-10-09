@@ -1,7 +1,12 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './layout/AppLayout'
 import { BerichtePage } from './pages/BerichtePage'
-import { BuchhaltungPage } from './pages/BuchhaltungPage'
+import {
+  BuchhaltungLayout,
+  BuchhaltungOverviewPage,
+  ChartOfAccountsPage,
+  NewEntryPage,
+} from './pages/BuchhaltungPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { EinkaufPage } from './pages/EinkaufPage'
 import { EinstellungenPage } from './pages/EinstellungenPage'
@@ -15,7 +20,11 @@ export default function App() {
       <Routes>
         <Route element={<AppLayout />}>
           <Route index element={<DashboardPage />} />
-          <Route path="buchhaltung/*" element={<BuchhaltungPage />} />
+          <Route path="buchhaltung" element={<BuchhaltungLayout />}>
+            <Route index element={<BuchhaltungOverviewPage />} />
+            <Route path="kontenplan" element={<ChartOfAccountsPage />} />
+            <Route path="neu" element={<NewEntryPage />} />
+          </Route>
           <Route path="verkauf" element={<VerkaufPage />} />
           <Route path="einkauf" element={<EinkaufPage />} />
           <Route path="lager" element={<LagerPage />} />

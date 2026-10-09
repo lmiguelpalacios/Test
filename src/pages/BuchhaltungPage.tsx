@@ -1,4 +1,4 @@
-import { NavLink, Navigate, Route, Routes } from 'react-router-dom'
+import { NavLink, Outlet } from 'react-router-dom'
 import { AccountingProvider } from '../accounting/AccountingContext'
 import { AccountingOverview } from '../components/buchhaltung/AccountingOverview'
 import { ChartOfAccountsPanel } from '../components/buchhaltung/ChartOfAccountsPanel'
@@ -6,7 +6,19 @@ import { JournalEntryForm } from '../components/buchhaltung/JournalEntryForm'
 import { PageHeader } from '../components/PageHeader'
 import { DemoBanner } from '../components/DemoBanner'
 
-function ChartOfAccountsPage() {
+export function BuchhaltungLayout() {
+  return (
+    <AccountingProvider>
+      <Outlet />
+    </AccountingProvider>
+  )
+}
+
+export function BuchhaltungOverviewPage() {
+  return <AccountingOverview />
+}
+
+export function ChartOfAccountsPage() {
   return (
     <div className="page-stack">
       <DemoBanner />
@@ -24,7 +36,7 @@ function ChartOfAccountsPage() {
   )
 }
 
-function NewEntryPage() {
+export function NewEntryPage() {
   return (
     <div className="page-stack">
       <DemoBanner />
@@ -39,18 +51,5 @@ function NewEntryPage() {
       />
       <JournalEntryForm />
     </div>
-  )
-}
-
-export function BuchhaltungPage() {
-  return (
-    <AccountingProvider>
-      <Routes>
-        <Route index element={<AccountingOverview />} />
-        <Route path="kontenplan" element={<ChartOfAccountsPage />} />
-        <Route path="neu" element={<NewEntryPage />} />
-        <Route path="*" element={<Navigate to="/buchhaltung" replace />} />
-      </Routes>
-    </AccountingProvider>
   )
 }
