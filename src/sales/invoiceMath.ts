@@ -27,14 +27,18 @@ export function validateInvoiceLine(line: InvoiceLine): string | null {
 }
 
 export function calculateInvoiceTotals(lines: InvoiceLine[]): InvoiceTotals {
-  let netCents = 0
-  let taxCents = 0
   for (const line of lines) {
     const error = validateInvoiceLine(line)
     if (error) throw new Error(error)
-    const net = lineNetCents(line.quantity, line.netUnitPriceCents)
-    netCents += net
-    taxCents += calculateTaxCents(net, line.vatRate)
+  }
+  // Steuer je USt-Satz auf Summennetto — identisch zur Journalbuchung
+  // (keine positionsweise Steuer, die vom Gruppen-Netto abweichen kann).
+  const groups = groupLinesByVatRate(lines)
+  let netCents = 0
+  let taxCents = 0
+  for (const group of groups.values()) {
+    netCents += group.netCents
+    taxCents += group.taxCents
   }
   return {
     netCents,
@@ -52,14 +56,17 @@ export function revenueAccountForVat(vatRate: VatRate): string {
 export function groupLinesByVatRate(
   lines: InvoiceLine[],
 ): Map<VatRate, { netCents: number; taxCents: number }> {
-  const groups = new Map<VatRate, { netCents: number; taxCents: number }>()
+  const nets = new Map<VatRate, number>()
   for (const line of lines) {
     const net = lineNetCents(line.quantity, line.netUnitPriceCents)
-    const tax = calculateTaxCents(net, line.vatRate)
-    const current = groups.get(line.vatRate) ?? { netCents: 0, taxCents: 0 }
-    current.netCents += net
-    current.taxCents += tax
-    groups.set(line.vatRate, current)
+    nets.set(line.vatRate, (nets.get(line.vatRate) ?? 0) + net)
+  }
+  const groups = new Map<VatRate, { netCents: number; taxCents: number }>()
+  for (const [vatRate, netCents] of nets) {
+    groups.set(vatRate, {
+      netCents,
+      taxCents: calculateTaxCents(netCents, vatRate),
+    })
   }
   return groups
 }

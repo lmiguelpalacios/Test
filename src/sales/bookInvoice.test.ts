@@ -5,6 +5,7 @@ import { validateJournalEntry } from '../accounting/validateEntry'
 import { sumLines } from '../accounting/validateEntry'
 import { isBalanced } from '../accounting/money'
 import { buildInvoiceBookingDrafts } from './bookInvoice'
+import { calculateInvoiceTotals } from './invoiceMath'
 import type { SalesInvoice } from '../types/sales'
 
 const draftInvoice: SalesInvoice = {
@@ -80,5 +81,43 @@ describe('Rechnungsbuchung', () => {
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.drafts).toHaveLength(2)
+  })
+
+  it('Journal-Brutto entspricht Rechnungsbrutto bei Bruchmengen gleichem USt-Satz', () => {
+    const invoice: SalesInvoice = {
+      ...draftInvoice,
+      lines: [
+        {
+          id: 'l1',
+          description: 'A',
+          quantity: 1.1,
+          netUnitPriceCents: 1999,
+          vatRate: 19,
+        },
+        {
+          id: 'l2',
+          description: 'B',
+          quantity: 2.3,
+          netUnitPriceCents: 1999,
+          vatRate: 19,
+        },
+        {
+          id: 'l3',
+          description: 'C',
+          quantity: 0.5,
+          netUnitPriceCents: 1999,
+          vatRate: 19,
+        },
+      ],
+    }
+    const built = buildInvoiceBookingDrafts(invoice, demoCustomers[0])
+    expect(built.ok).toBe(true)
+    if (!built.ok) return
+    const validated = validateJournalEntry(built.drafts[0]!, chartOfAccounts)
+    expect(validated.ok).toBe(true)
+    if (!validated.ok) return
+    expect(validated.entry.grossAmountCents).toBe(
+      calculateInvoiceTotals(invoice.lines).grossCents,
+    )
   })
 })

@@ -70,4 +70,38 @@ describe('Rechnungsbeträge (Netto/USt/Brutto)', () => {
     expect(groups.get(19)?.netCents).toBe(15000)
     expect(groups.get(7)?.netCents).toBe(2000)
   })
+
+  it('USt bei gleichem Satz: Rechnungsbrutto = Gruppensteuer (kein Cent-Drift vs. Journal)', () => {
+    const lines = [
+      {
+        id: 'a',
+        description: 'A',
+        quantity: 1.1,
+        netUnitPriceCents: 1999,
+        vatRate: 19 as const,
+      },
+      {
+        id: 'b',
+        description: 'B',
+        quantity: 2.3,
+        netUnitPriceCents: 1999,
+        vatRate: 19 as const,
+      },
+      {
+        id: 'c',
+        description: 'C',
+        quantity: 0.5,
+        netUnitPriceCents: 1999,
+        vatRate: 19 as const,
+      },
+    ]
+    const totals = calculateInvoiceTotals(lines)
+    const group = groupLinesByVatRate(lines).get(19)!
+    expect(totals.netCents).toBe(group.netCents)
+    expect(totals.taxCents).toBe(group.taxCents)
+    expect(totals.grossCents).toBe(group.netCents + group.taxCents)
+    // Positionsweise Steuer würde 1482 ergeben; Gruppensteuer ist 1481
+    expect(totals.taxCents).toBe(1481)
+    expect(totals.grossCents).toBe(9278)
+  })
 })

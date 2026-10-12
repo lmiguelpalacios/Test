@@ -39,7 +39,10 @@ import {
 } from '../data/purchase-demo'
 import { createId, formatInvoiceNumber } from '../data/sales-demo'
 import { buildVendorInvoiceBookingDrafts } from '../purchase/bookVendorInvoice'
-import { remainingQuantityForLine } from '../purchase/orderStatus'
+import {
+  aggregateReceiptQuantities,
+  remainingQuantityForLine,
+} from '../purchase/orderStatus'
 import { buildVendorPaymentDraft } from '../purchase/recordVendorPayment'
 import { buildGoodsReceiptStockMovements } from '../purchase/stock'
 import { buildInvoiceBookingDrafts } from '../sales/bookInvoice'
@@ -623,8 +626,11 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
         if (!(line.quantity > 0)) {
           return { ok: false, message: 'Liefermengen müssen größer als 0 sein.' }
         }
-        const remaining = remainingQuantityForLine(order, line.orderLineId, purchase.receipts)
-        if (line.quantity > remaining) {
+      }
+      const aggregated = aggregateReceiptQuantities(input.lines)
+      for (const [orderLineId, quantity] of aggregated) {
+        const remaining = remainingQuantityForLine(order, orderLineId, purchase.receipts)
+        if (quantity > remaining) {
           return {
             ok: false,
             message: `Überlieferung verhindert (max. noch ${remaining}).`,
@@ -638,9 +644,10 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
       setPurchase((prev) => {
         const current = prev.orders.find((item) => item.id === orderId)
         if (!current?.confirmedAt) return prev
-        for (const line of input.lines) {
-          const remaining = remainingQuantityForLine(current, line.orderLineId, prev.receipts)
-          if (line.quantity > remaining) return prev
+        const aggregatedInUpdater = aggregateReceiptQuantities(input.lines)
+        for (const [orderLineId, quantity] of aggregatedInUpdater) {
+          const remaining = remainingQuantityForLine(current, orderLineId, prev.receipts)
+          if (quantity > remaining) return prev
         }
         const nextReceipt: GoodsReceipt = {
           id: createId('gr'),

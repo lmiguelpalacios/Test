@@ -27,7 +27,7 @@ export function AccountingOverview() {
 
   function handleReset() {
     const confirmed = window.confirm(
-      'Übungsstand zurücksetzen?\n\nAlle im Browser gespeicherten Buchungen werden durch die ursprünglichen Demo-Daten ersetzt.',
+      'Übungsstand zurücksetzen?\n\nAlle im Browser gespeicherten Journal-, Verkaufs- und Einkaufsdaten werden durch die ursprünglichen Demo-Daten ersetzt.',
     )
     if (confirmed) {
       resetToDemo()

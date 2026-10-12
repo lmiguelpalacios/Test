@@ -51,3 +51,14 @@ export function remainingQuantityForLine(
   if (!line) return 0
   return Math.max(0, line.quantity - receivedQuantityForLine(order.id, orderLineId, receipts))
 }
+
+/** Summiert Mengen je Bestellposition (verhindert Überlieferung per Doppel-Zeilen). */
+export function aggregateReceiptQuantities(
+  lines: Array<{ orderLineId: string; quantity: number }>,
+): Map<string, number> {
+  const totals = new Map<string, number>()
+  for (const line of lines) {
+    totals.set(line.orderLineId, (totals.get(line.orderLineId) ?? 0) + line.quantity)
+  }
+  return totals
+}
