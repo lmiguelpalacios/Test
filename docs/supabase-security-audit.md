@@ -1,8 +1,10 @@
 # Supabase Security & Consistency Audit — Schema v1
 
 **Stand:** 2026-10-12 · Branch `cursor/uebungsunternehmen-frontend-6a56` / PR #1  
-**Art:** Nur statischer Audit (SQL lesen). **Kein** Remote, **kein** `apply_migration` / `execute_sql`, SQL-Dateien unverändert.  
-**Geprüft:**  
+**Art:** Statischer Audit des **damaligen** SQL-Stands (vor Remediation). Historisches Befunddokument — nicht löschen.  
+**Remediation (lokal, nachgelagert):** `docs/supabase-security-remediation.md` — A1–A5 + Phase 2/3 im Repo umgesetzt; **weiterhin kein Remote-Deploy.**
+
+**Ursprünglich geprüft:**  
 `supabase/migrations/20261012120000_nordlicht_schema_v1.sql`,  
 `supabase/migrations/20261012120100_nordlicht_rls_v1.sql`,  
 `supabase/sql/rpc_booking_stubs.sql`,  
@@ -17,7 +19,8 @@
 
 ### Noch nicht freigeben
 
-Deployment auf **nordlicht-handels** (oder jede Umgebung mit erreichbarem `authenticated`-Client) ist **nicht freizugeben**, solange die kritischen Mandanten-/Privilege-Befunde unten nicht behoben und per Review-DB nachgeprüft sind.
+Zum Audit-Zeitpunkt: Deployment nicht freigeben wegen A1–A3 u. a.  
+**Aktuell:** Kritische Punkte sind lokal remediiert (siehe Remediation-Doc), aber ohne Review-DB-Lauf und ohne Booking-RPC-Bodies bleibt Remote-Deploy **nicht** freigegeben.
 
 Eine leere „nur Schema anschauen“-Sandbox ohne User-Traffic mindert das Risiko nicht ausreichend: die Bootstrap- und DEFINER-Lücken sind aus dem SQL allein ableitbar und würden mit dem ersten Login wirksam.
 
