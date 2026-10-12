@@ -14,6 +14,11 @@ import type {
   ValidationIssue,
 } from '../types/accounting'
 import type {
+  LearningAnswer,
+  LearningState,
+  TaskProgress,
+} from '../types/learning'
+import type {
   GoodsReceipt,
   GoodsReceiptLine,
   PurchaseOrder,
@@ -32,6 +37,15 @@ import type {
 } from '../types/sales'
 import { chartOfAccounts } from '../data/chart-of-accounts'
 import { createJournalEntryId } from '../data/journal-entries'
+import {
+  computeLearningTotalPoints,
+  getLearningTaskById,
+} from '../data/learning-tasks'
+import {
+  evaluateLearningAnswer,
+  solutionToPracticeDraft,
+} from '../learning/evaluateAnswer'
+import type { EvaluationResult } from '../types/learning'
 import {
   formatGoodsReceiptNumber,
   formatPurchaseOrderNumber,
@@ -124,6 +138,19 @@ interface AccountingContextValue {
       reference?: string
     },
   ) => ActionResult
+  learning: LearningState
+  /** Prüft Antwort — schreibt kein Journal. */
+  submitLearningAnswer: (
+    taskId: string,
+    answer: LearningAnswer,
+  ) => ActionResult & { evaluation?: EvaluationResult }
+  /** Markiert Aufgabe abgeschlossen (nach Bewertung). */
+  completeLearningTask: (taskId: string) => ActionResult
+  /**
+   * Übernimmt Musterlösung ins echte Journal — nur nach Nutzerbestätigung in der UI
+   * und nur wenn die Aufgabe abgeschlossen ist.
+   */
+  postLearningPracticeEntry: (taskId: string) => ActionResult
 }
 
 const AccountingContext = createContext<AccountingContextValue | null>(null)
@@ -185,6 +212,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
   const [entries, setEntries] = useState<JournalEntry[]>(initial.entries)
   const [sales, setSales] = useState<SalesState>(initial.sales)
   const [purchase, setPurchase] = useState<PurchaseState>(initial.purchase)
+  const [learning, setLearning] = useState<LearningState>(initial.learning)
   const [persistSource, setPersistSource] = useState<JournalLoadSource>(initial.source)
   const [persistWarning, setPersistWarning] = useState<string | undefined>(
     initial.warning,
@@ -195,13 +223,13 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
     const storage = getBrowserStorage()
     if (!storage) return
     try {
-      saveWorkspace({ entries, sales, purchase }, storage)
+      saveWorkspace({ entries, sales, purchase, learning }, storage)
     } catch {
       setPersistWarning(
         'Daten konnten nicht im Browser gespeichert werden (localStorage voll oder blockiert).',
       )
     }
-  }, [entries, sales, purchase])
+  }, [entries, sales, purchase, learning])
 
   const addEntry = useCallback((draft: JournalEntryDraft): AddEntryResult => {
     const result = validateJournalEntry(draft, chartOfAccounts)
@@ -222,6 +250,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
     setEntries(demo.entries)
     setSales(demo.sales)
     setPurchase(demo.purchase)
+    setLearning(demo.learning)
     setPersistSource('demo')
     setPersistWarning(
       getBrowserStorage()
@@ -229,6 +258,126 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
         : 'localStorage ist nicht verfügbar — Demo nur im Arbeitsspeicher geladen.',
     )
   }, [])
+
+  const submitLearningAnswer = useCallback(
+    (
+      taskId: string,
+      answer: LearningAnswer,
+    ): ActionResult & { evaluation?: EvaluationResult } => {
+      const task = getLearningTaskById(taskId)
+      if (!task) return { ok: false, message: 'Lernaufgabe nicht gefunden.' }
+      const evaluation = evaluateLearningAnswer(task, answer)
+      const now = new Date().toISOString()
+      setLearning((prev) => {
+        const existing = prev.progress.find((item) => item.taskId === taskId)
+        const nextItem: TaskProgress = {
+          taskId,
+          attempts: (existing?.attempts ?? 0) + 1,
+          bestScore: Math.max(existing?.bestScore ?? 0, evaluation.score),
+          completed: existing?.completed ?? false,
+          lastAttemptAt: now,
+          practicePostedAt: existing?.practicePostedAt,
+        }
+        if (evaluation.fullyCorrect) {
+          nextItem.completed = true
+        }
+        const progress = existing
+          ? prev.progress.map((item) =>
+              item.taskId === taskId ? nextItem : item,
+            )
+          : [...prev.progress, nextItem]
+        return {
+          progress,
+          lastTaskId: taskId,
+          totalPoints: computeLearningTotalPoints(progress),
+        }
+      })
+      setPersistSource('storage')
+      return { ok: true, evaluation }
+    },
+    [],
+  )
+
+  const completeLearningTask = useCallback((taskId: string): ActionResult => {
+    const task = getLearningTaskById(taskId)
+    if (!task) return { ok: false, message: 'Lernaufgabe nicht gefunden.' }
+    setLearning((prev) => {
+      const existing = prev.progress.find((item) => item.taskId === taskId)
+      if (!existing) return prev
+      const progress = prev.progress.map((item) =>
+        item.taskId === taskId ? { ...item, completed: true } : item,
+      )
+      return {
+        ...prev,
+        progress,
+        lastTaskId: taskId,
+        totalPoints: computeLearningTotalPoints(progress),
+      }
+    })
+    setPersistSource('storage')
+    return { ok: true }
+  }, [])
+
+  const postLearningPracticeEntry = useCallback(
+    (taskId: string): ActionResult => {
+      const task = getLearningTaskById(taskId)
+      if (!task) return { ok: false, message: 'Lernaufgabe nicht gefunden.' }
+      if (!task.allowPracticeJournalPost) {
+        return {
+          ok: false,
+          message: 'Diese Aufgabe erlaubt keine Übungsbuchung ins Journal.',
+        }
+      }
+      const progress = learning.progress.find((item) => item.taskId === taskId)
+      if (!progress?.completed) {
+        return {
+          ok: false,
+          message:
+            'Erst die Aufgabe vollständig lösen und abschließen — danach optional ins Journal übernehmen.',
+        }
+      }
+      if (progress.practicePostedAt) {
+        return {
+          ok: false,
+          message: 'Die Übungsbuchung wurde für diese Aufgabe bereits übernommen.',
+        }
+      }
+      const lockKey = `learn-post:${taskId}`
+      if (bookingLocks.current.has(lockKey)) {
+        return { ok: false, message: 'Übernahme läuft bereits.' }
+      }
+      bookingLocks.current.add(lockKey)
+      try {
+        const draft = solutionToPracticeDraft(task)
+        const result = validateJournalEntry(draft, chartOfAccounts)
+        if (!result.ok) {
+          return {
+            ok: false,
+            message: result.issues[0]?.message ?? 'Übungsbuchung ungültig.',
+          }
+        }
+        const entry: JournalEntry = {
+          ...result.entry,
+          id: createJournalEntryId(),
+          createdAt: new Date().toISOString(),
+        }
+        setEntries((prev) => [entry, ...prev])
+        setLearning((prev) => ({
+          ...prev,
+          progress: prev.progress.map((item) =>
+            item.taskId === taskId
+              ? { ...item, practicePostedAt: entry.createdAt }
+              : item,
+          ),
+        }))
+        setPersistSource('storage')
+        return { ok: true }
+      } finally {
+        bookingLocks.current.delete(lockKey)
+      }
+    },
+    [learning.progress],
+  )
 
   const upsertCustomer = useCallback(
     (input: Omit<Customer, 'id'> & { id?: string }): Customer => {
@@ -895,6 +1044,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
       entries: sortEntriesNewestFirst(entries),
       sales,
       purchase,
+      learning,
       periodLabel: BOOKING_PERIOD_LABEL,
       totals: computeAccountingTotals(entries, BOOKING_PERIOD_LABEL),
       persistSource,
@@ -914,11 +1064,15 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
       saveVendorInvoice,
       bookVendorInvoice,
       recordVendorPayment,
+      submitLearningAnswer,
+      completeLearningTask,
+      postLearningPracticeEntry,
     }),
     [
       entries,
       sales,
       purchase,
+      learning,
       persistSource,
       persistWarning,
       addEntry,
@@ -935,6 +1089,9 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
       saveVendorInvoice,
       bookVendorInvoice,
       recordVendorPayment,
+      submitLearningAnswer,
+      completeLearningTask,
+      postLearningPracticeEntry,
     ],
   )
 

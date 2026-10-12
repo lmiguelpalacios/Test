@@ -10,7 +10,7 @@ import {
 import { createDemoPurchaseState } from '../data/purchase-demo'
 import { createDemoSalesState } from '../data/sales-demo'
 
-describe('Einkaufs-Persistenz Workspace v3', () => {
+describe('Einkaufs-Persistenz Workspace', () => {
   it('speichert und lädt Einkaufsdaten mit dem Journal', () => {
     const storage = createMemoryStorage()
     const demo = cloneDemoWorkspace()

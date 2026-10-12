@@ -31,16 +31,13 @@ npm run typecheck
 npm test
 ```
 
-### Buchhaltung, Verkauf, Einkauf, Berichte & Persistenz
+### Buchhaltung, Verkauf, Einkauf, Berichte, Lernmodus & Persistenz
 
-- Gemeinsame Journal-Datenquelle (`AccountingProvider` + Workspace-`localStorage` v3)
-- Verkauf: Kunden, Produkte, Ausgangsrechnungen (Entwurf → buchen → Zahlungen)
-- Einkauf: Lieferanten, Bestellungen, Wareneingang, Eingangsrechnungen, Zahlungsausgänge
-- Berichte: SuSa, Kontenblatt, GuV, Bilanz, offene Posten — nur aus Journal/Belegen
-- Buchungen nur über zentrales Journal (Forderungen/Verbindlichkeiten, USt/VSt, Bank)
-- Gemeinsamer Produktkatalog; Bestand aus Bewegungen (WE +, Verkauf −)
-- Speichern/Laden inkl. Verkauf + Einkauf; Reset auf Demo in der Buchhaltung
-- Dashboard: Journal-Kennzahlen aus derselben Quelle; YTD-Grafik bleibt separate Demo
+- Gemeinsame Journal-Datenquelle (`AccountingProvider` + Workspace-`localStorage` v4)
+- Verkauf / Einkauf / Berichte wie zuvor
+- Lernmodus: Buchungsaufgaben mit Bewertung; Journal nur nach ausdrücklicher Übungsübernahme
+- Speichern/Laden inkl. Verkauf, Einkauf und Lernfortschritt; Reset löscht auch Lernfortschritt
+- Dashboard: Journal-Kennzahlen; YTD-Grafik bleibt separate Demo
 
 
 ## Struktur
@@ -48,8 +45,9 @@ npm test
 ```
 src/
   accounting/   # Journal, Persistenz, AccountingProvider
-  components/   # UI (Buchhaltung, Verkauf, Einkauf, Berichte, …)
-  data/         # Demo-Daten
+  components/   # UI (…, Berichte, Lernmodus)
+  data/         # Demo-Daten inkl. Lernaufgaben
+  learning/     # Bewertung Lernantworten
   layout/       # Sidebar, Topbar, App-Layout
   purchase/     # Einkaufslogik
   reports/      # Auswertung aus Journal/Belegen
@@ -70,6 +68,7 @@ supabase/       # Stub — nicht angebunden
 | Lager          | Verweis auf Produkte/Bestände im Einkauf    |
 | Kontakte       | Platzhalter                                 |
 | Berichte       | SuSa, Kontenblatt, GuV, Bilanz, offene Posten|
+| Lernmodus      | Aufgaben, Bewertung, Fortschritt (lokal)    |
 | Einstellungen  | Platzhalter                                 |
 
 Alle Demo-Daten sind in der UI klar gekennzeichnet. Es gibt keine echte Buchhaltung und keine Datenbank.

@@ -6,6 +6,7 @@ export type NavItemId =
   | 'lager'
   | 'kontakte'
   | 'berichte'
+  | 'lernmodus'
   | 'einstellungen'
 
 export interface CompanyInfo {

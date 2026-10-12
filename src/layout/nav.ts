@@ -1,6 +1,7 @@
 import {
   BarChart3,
   BookOpen,
+  GraduationCap,
   LayoutDashboard,
   Package,
   Settings,
@@ -26,6 +27,7 @@ export const navItems: NavItem[] = [
   { id: 'lager', label: 'Lager', path: '/lager', icon: Package },
   { id: 'kontakte', label: 'Kontakte', path: '/kontakte', icon: Users },
   { id: 'berichte', label: 'Berichte', path: '/berichte', icon: BarChart3 },
+  { id: 'lernmodus', label: 'Lernmodus', path: '/lernmodus', icon: GraduationCap },
   {
     id: 'einstellungen',
     label: 'Einstellungen',

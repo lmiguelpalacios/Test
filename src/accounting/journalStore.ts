@@ -1,14 +1,16 @@
 import type { JournalEntry, JournalLine, VatRate } from '../types/accounting'
+import type { LearningState, TaskProgress } from '../types/learning'
 import type { PurchaseState } from '../types/purchase'
 import type { Product, SalesState } from '../types/sales'
 import { initialJournalEntries } from '../data/journal-entries'
+import { createEmptyLearningState } from '../data/learning-tasks'
 import { createDemoPurchaseState } from '../data/purchase-demo'
 import { createDemoSalesState } from '../data/sales-demo'
 import { isBalanced } from './money'
 import { sumLines } from './validateEntry'
 
 export const JOURNAL_STORAGE_KEY = 'nordlicht.uebungsunternehmen.journal.v1'
-export const JOURNAL_STORAGE_VERSION = 3 as const
+export const JOURNAL_STORAGE_VERSION = 4 as const
 
 export interface StorageLike {
   getItem(key: string): string | null
@@ -22,6 +24,7 @@ export interface WorkspacePersistPayload {
   entries: JournalEntry[]
   sales: SalesState
   purchase: PurchaseState
+  learning: LearningState
 }
 
 export type JournalLoadSource = 'storage' | 'demo' | 'recovered-demo'
@@ -30,6 +33,7 @@ export interface WorkspaceLoadResult {
   entries: JournalEntry[]
   sales: SalesState
   purchase: PurchaseState
+  learning: LearningState
   source: JournalLoadSource
   warning?: string
 }
@@ -356,20 +360,64 @@ export function cloneDemoEntries(): JournalEntry[] {
   }))
 }
 
+function sanitizeLearning(raw: unknown): LearningState {
+  if (!isRecord(raw) || !Array.isArray(raw.progress)) {
+    return createEmptyLearningState()
+  }
+  const seen = new Set<string>()
+  const progress: TaskProgress[] = []
+  for (const item of raw.progress) {
+    if (!isRecord(item)) continue
+    if (typeof item.taskId !== 'string' || item.taskId.trim() === '') continue
+    if (seen.has(item.taskId)) continue
+    if (!Number.isInteger(item.attempts) || Number(item.attempts) < 0) continue
+    if (!Number.isInteger(item.bestScore) || Number(item.bestScore) < 0) continue
+    if (typeof item.completed !== 'boolean') continue
+    seen.add(item.taskId)
+    progress.push({
+      taskId: item.taskId,
+      attempts: item.attempts as number,
+      bestScore: item.bestScore as number,
+      completed: item.completed,
+      lastAttemptAt:
+        typeof item.lastAttemptAt === 'string' ? item.lastAttemptAt : undefined,
+      practicePostedAt:
+        typeof item.practicePostedAt === 'string'
+          ? item.practicePostedAt
+          : undefined,
+    })
+  }
+  const totalPoints = progress
+    .filter((item) => item.completed)
+    .reduce((sum, item) => sum + item.bestScore, 0)
+  return {
+    progress,
+    lastTaskId: typeof raw.lastTaskId === 'string' ? raw.lastTaskId : undefined,
+    totalPoints,
+  }
+}
+
 export function cloneDemoWorkspace(): {
   entries: JournalEntry[]
   sales: SalesState
   purchase: PurchaseState
+  learning: LearningState
 } {
   return {
     entries: cloneDemoEntries(),
     sales: createDemoSalesState(),
     purchase: createDemoPurchaseState(),
+    learning: createEmptyLearningState(),
   }
 }
 
 export function saveWorkspace(
-  data: { entries: JournalEntry[]; sales: SalesState; purchase: PurchaseState },
+  data: {
+    entries: JournalEntry[]
+    sales: SalesState
+    purchase: PurchaseState
+    learning: LearningState
+  },
   storage: StorageLike,
 ): void {
   const payload: WorkspacePersistPayload = {
@@ -378,6 +426,7 @@ export function saveWorkspace(
     entries: data.entries,
     sales: data.sales,
     purchase: data.purchase,
+    learning: data.learning,
   }
   storage.setItem(JOURNAL_STORAGE_KEY, JSON.stringify(payload))
 }
@@ -387,8 +436,9 @@ export function saveJournalEntries(
   storage: StorageLike,
   sales: SalesState = createDemoSalesState(),
   purchase: PurchaseState = createDemoPurchaseState(),
+  learning: LearningState = createEmptyLearningState(),
 ): void {
-  saveWorkspace({ entries, sales, purchase }, storage)
+  saveWorkspace({ entries, sales, purchase, learning }, storage)
 }
 
 export function clearJournalStorage(storage: StorageLike): void {
@@ -399,6 +449,7 @@ export function resetWorkspace(storage: StorageLike): {
   entries: JournalEntry[]
   sales: SalesState
   purchase: PurchaseState
+  learning: LearningState
 } {
   const demo = cloneDemoWorkspace()
   saveWorkspace(demo, storage)
@@ -436,13 +487,16 @@ export function loadWorkspace(storage: StorageLike): WorkspaceLoadResult {
       }
       const sales = createDemoSalesState()
       const purchase = createDemoPurchaseState()
-      saveWorkspace({ entries, sales, purchase }, storage)
+      const learning = createEmptyLearningState()
+      saveWorkspace({ entries, sales, purchase, learning }, storage)
       return {
         entries,
         sales,
         purchase,
+        learning,
         source: 'storage',
-        warning: 'Verkauf/Einkauf wurden ergänzt (Migration von Persistenz v1).',
+        warning:
+          'Verkauf/Einkauf/Lernmodus wurden ergänzt (Migration von Persistenz v1).',
       }
     }
 
@@ -456,13 +510,38 @@ export function loadWorkspace(storage: StorageLike): WorkspaceLoadResult {
         )
       }
       const purchase = createDemoPurchaseState()
-      saveWorkspace({ entries, sales, purchase }, storage)
+      const learning = createEmptyLearningState()
+      saveWorkspace({ entries, sales, purchase, learning }, storage)
       return {
         entries,
         sales,
         purchase,
+        learning,
         source: 'storage',
-        warning: 'Einkaufsdaten wurden ergänzt (Migration von Persistenz v2).',
+        warning:
+          'Einkauf/Lernmodus wurden ergänzt (Migration von Persistenz v2).',
+      }
+    }
+
+    if (parsed.version === 3) {
+      const entries = sanitizeEntries(parsed.entries)
+      const sales = sanitizeSales(parsed.sales)
+      const purchase = sanitizePurchase(parsed.purchase)
+      if (entries.length === 0 || !sales || !purchase) {
+        return recoverDemo(
+          storage,
+          'Gespeicherte Daten waren unvollständig und wurden zurückgesetzt.',
+        )
+      }
+      const learning = createEmptyLearningState()
+      saveWorkspace({ entries, sales, purchase, learning }, storage)
+      return {
+        entries,
+        sales,
+        purchase,
+        learning,
+        source: 'storage',
+        warning: 'Lernfortschritt wurde ergänzt (Migration von Persistenz v3).',
       }
     }
 
@@ -476,6 +555,7 @@ export function loadWorkspace(storage: StorageLike): WorkspaceLoadResult {
     const entries = sanitizeEntries(parsed.entries)
     const sales = sanitizeSales(parsed.sales)
     const purchase = sanitizePurchase(parsed.purchase)
+    const learning = sanitizeLearning(parsed.learning)
     if (entries.length === 0 || !sales || !purchase) {
       return recoverDemo(
         storage,
@@ -483,7 +563,7 @@ export function loadWorkspace(storage: StorageLike): WorkspaceLoadResult {
       )
     }
 
-    return { entries, sales, purchase, source: 'storage' }
+    return { entries, sales, purchase, learning, source: 'storage' }
   } catch {
     return recoverDemo(
       storage,

@@ -35,6 +35,11 @@ import { EinstellungenPage } from './pages/EinstellungenPage'
 import { KontaktePage } from './pages/KontaktePage'
 import { LagerPage } from './pages/LagerPage'
 import {
+  LernmodusLayout,
+  LernmodusOverviewPage,
+  LernmodusTaskPage,
+} from './pages/LernmodusPage'
+import {
   CustomersPage,
   InvoiceDetailPage,
   NewInvoicePage,
@@ -88,6 +93,10 @@ export default function App() {
               <Route path="guv" element={<IncomeStatementPage />} />
               <Route path="bilanz" element={<BalanceSheetPage />} />
               <Route path="offen" element={<OpenItemsPage />} />
+            </Route>
+            <Route path="lernmodus" element={<LernmodusLayout />}>
+              <Route index element={<LernmodusOverviewPage />} />
+              <Route path="aufgaben/:taskId" element={<LernmodusTaskPage />} />
             </Route>
             <Route path="einstellungen" element={<EinstellungenPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
