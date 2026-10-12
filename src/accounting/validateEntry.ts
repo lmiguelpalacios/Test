@@ -126,6 +126,25 @@ export function validateJournalEntry(
     return { ok: false, issues }
   }
 
+  // USt > 0 nur bei Aufwand→Vorsteuer oder Erlös→Umsatzsteuer; sonst würde
+  // buildLines den Nettobetrag still ohne Steuerzeilen buchen.
+  if (
+    (draft.vatRate === 7 || draft.vatRate === 19) &&
+    debit.type !== 'aufwand' &&
+    credit.type !== 'ertrag'
+  ) {
+    return {
+      ok: false,
+      issues: [
+        {
+          field: 'vatRate',
+          message:
+            'Bei USt 7 %/19 % muss das Sollkonto ein Aufwandskonto oder das Habenkonto ein Erlöskonto sein.',
+        },
+      ],
+    }
+  }
+
   const taxAmountCents = calculateTaxCents(draft.netAmountCents, draft.vatRate)
   const grossAmountCents = calculateGrossCents(draft.netAmountCents, draft.vatRate)
   const lines = buildLines(draft, debit, credit, taxAmountCents, grossAmountCents)

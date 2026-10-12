@@ -58,6 +58,24 @@ describe('Buchungsvalidierung / Soll-Haben-Ausgleich', () => {
     )
   })
 
+  it('lehnt USt>0 ohne Aufwand-/Erlöskonstellation ab (kein stilles Netto-ohne-Steuer)', () => {
+    const result = validateJournalEntry(
+      {
+        date: '2026-10-09',
+        documentNumber: 'XX-1',
+        description: 'Falsche Konten mit USt',
+        debitAccount: '1400',
+        creditAccount: '1600',
+        netAmountCents: 10000,
+        vatRate: 19,
+      },
+      chartOfAccounts,
+    )
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.issues.some((issue) => issue.field === 'vatRate')).toBe(true)
+  })
+
   it('lehnt ungültige Buchungen ab', () => {
     const result = validateJournalEntry(
       {

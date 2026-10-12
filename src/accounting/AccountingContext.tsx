@@ -41,6 +41,7 @@ import { createId, formatInvoiceNumber } from '../data/sales-demo'
 import { buildVendorInvoiceBookingDrafts } from '../purchase/bookVendorInvoice'
 import { remainingQuantityForLine } from '../purchase/orderStatus'
 import { buildVendorPaymentDraft } from '../purchase/recordVendorPayment'
+import { buildGoodsReceiptStockMovements } from '../purchase/stock'
 import { buildInvoiceBookingDrafts } from '../sales/bookInvoice'
 import { validateInvoiceLine } from '../sales/invoiceMath'
 import { buildPaymentBookingDraft } from '../sales/recordPayment'
@@ -633,7 +634,6 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
 
       const now = new Date().toISOString()
       let receipt: GoodsReceipt | undefined
-      const stockMoves: StockMovement[] = []
 
       setPurchase((prev) => {
         const current = prev.orders.find((item) => item.id === orderId)
@@ -642,7 +642,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
           const remaining = remainingQuantityForLine(current, line.orderLineId, prev.receipts)
           if (line.quantity > remaining) return prev
         }
-        receipt = {
+        const nextReceipt: GoodsReceipt = {
           id: createId('gr'),
           number: formatGoodsReceiptNumber(prev.nextReceiptSequence),
           orderId,
@@ -650,26 +650,20 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
           lines: input.lines.map((line) => ({ ...line })),
           createdAt: now,
         }
-        for (const line of input.lines) {
-          const orderLine = current.lines.find((item) => item.id === line.orderLineId)
-          if (!orderLine?.productId) continue
-          const product = sales.products.find((item) => item.id === orderLine.productId)
-          if (!product?.tracksStock) continue
-          stockMoves.push({
-            id: createId('sm'),
-            productId: orderLine.productId,
-            date: input.receiptDate,
-            quantityDelta: line.quantity,
-            sourceType: 'wareneingang',
-            sourceId: receipt.id,
-            note: receipt.number,
-            createdAt: now,
-          })
-        }
+        // Rein lokal im Updater — kein geteiltes Array (Strict Mode).
+        const newMoves = buildGoodsReceiptStockMovements({
+          order: current,
+          receipt: nextReceipt,
+          lines: input.lines,
+          products: sales.products,
+          createMovementId: () => createId('sm'),
+          createdAt: now,
+        })
+        receipt = nextReceipt
         return {
           ...prev,
-          receipts: [...prev.receipts, receipt],
-          stockMovements: [...prev.stockMovements, ...stockMoves],
+          receipts: [...prev.receipts, nextReceipt],
+          stockMovements: [...prev.stockMovements, ...newMoves],
           nextReceiptSequence: prev.nextReceiptSequence + 1,
           orders: prev.orders.map((item) =>
             item.id === orderId ? { ...item, updatedAt: now } : item,

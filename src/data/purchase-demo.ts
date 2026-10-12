@@ -280,7 +280,8 @@ export function createDemoPurchaseState(): PurchaseState {
         id: 'vpay-0088-1',
         invoiceId: 'vinv-0088',
         date: '2026-10-08',
-        amountCents: 3_260_00,
+        // muss Brutto der Positionen treffen (2_739_50 + 19 % gerundet = 3_260_01)
+        amountCents: 3_260_01,
         bankAccount: '1200',
         reference: 'ZA-2026-0031 Begleichung ER-2026-0088',
         journalEntryId: 'je-008',

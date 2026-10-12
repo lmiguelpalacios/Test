@@ -87,7 +87,8 @@ export const initialJournalEntries: JournalEntry[] = [
     description: 'Begleichung ER-2026-0088 an Nordsee Logistik',
     debitAccount: '1600',
     creditAccount: '1200',
-    netAmountCents: 3_260_00,
+    // Brutto zu Netto 2_739_50 + USt 19 % (Math.round) = 3_260_01
+    netAmountCents: 3_260_01,
     vatRate: 0,
   }),
 ]

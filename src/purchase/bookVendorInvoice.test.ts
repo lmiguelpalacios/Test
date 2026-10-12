@@ -35,4 +35,26 @@ describe('Eingangsrechnungsbuchung', () => {
     )
     expect(result.ok).toBe(false)
   })
+
+  it('lehnt Nicht-Aufwandskonten ab', () => {
+    const draft: VendorInvoice = {
+      ...demoVendorInvoices[1]!,
+      id: 'vinv-bad',
+      internalNumber: 'ER-2026-0201',
+      journalEntryIds: [],
+      bookedAt: undefined,
+      lines: [
+        {
+          id: 'l1',
+          description: 'Falsches Konto',
+          quantity: 1,
+          netUnitPriceCents: 1000,
+          vatRate: 19,
+          expenseAccount: '1400',
+        },
+      ],
+    }
+    const result = buildVendorInvoiceBookingDrafts(draft, demoSuppliers[1])
+    expect(result.ok).toBe(false)
+  })
 })

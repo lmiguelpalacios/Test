@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { chartOfAccounts } from '../data/chart-of-accounts'
-import { demoVendorInvoices } from '../data/purchase-demo'
+import {
+  createDemoPurchaseState,
+  demoVendorInvoices,
+} from '../data/purchase-demo'
 import { validateJournalEntry } from '../accounting/validateEntry'
 import { calculateInvoiceTotals } from '../sales/invoiceMath'
 import {
@@ -10,6 +13,13 @@ import {
 } from './recordVendorPayment'
 
 describe('Zahlungsausgang Eingangsrechnung', () => {
+  it('Demo ER-2026-0088 ist nach Zahlung vollständig ausgeglichen (Cent-konsistent)', () => {
+    const invoice = demoVendorInvoices[0]!
+    const payments = createDemoPurchaseState().vendorPayments
+    expect(openVendorAmountCents(invoice, payments)).toBe(0)
+    expect(deriveVendorInvoiceStatus(invoice, payments)).toBe('bezahlt')
+  })
+
   it('berechnet offenen Betrag und verhindert Überzahlung', () => {
     const invoice = demoVendorInvoices[1]!
     const gross = calculateInvoiceTotals(

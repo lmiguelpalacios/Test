@@ -19,8 +19,8 @@ describe('Kennzahlen aus Journal', () => {
 
   it('bildet Bank-, Forderungs- und Verbindlichkeitssalden', () => {
     const bank = computeAccountBalanceCents(initialJournalEntries, '1200')
-    // ZE +1980, Miete -2142 (1800+342), ZA -3260
-    expect(bank).toBe(1_980_00 - 2_142_00 - 3_260_00)
+    // ZE +1980, Miete -2142 (1800+342), ZA -3260,01 (Brutto zu ER-0088)
+    expect(bank).toBe(1_980_00 - 2_142_00 - 3_260_01)
 
     const receivables = computeAccountBalanceCents(initialJournalEntries, '1400')
     expect(receivables).toBeGreaterThan(0)

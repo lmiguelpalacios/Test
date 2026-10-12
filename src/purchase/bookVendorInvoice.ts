@@ -1,5 +1,6 @@
 import type { JournalEntryDraft } from '../types/accounting'
 import type { Supplier, VendorInvoice } from '../types/purchase'
+import { getAccountMap } from '../data/chart-of-accounts'
 import { calculateInvoiceTotals, validateInvoiceLine } from '../sales/invoiceMath'
 import type { InvoiceLine } from '../types/sales'
 
@@ -42,6 +43,17 @@ export function buildVendorInvoiceBookingDrafts(
   for (const line of toInvoiceLines(invoice)) {
     const error = validateInvoiceLine(line)
     if (error) return { ok: false, message: error }
+  }
+
+  const accountMap = getAccountMap()
+  for (const line of invoice.lines) {
+    const account = accountMap.get(line.expenseAccount)
+    if (!account || account.type !== 'aufwand') {
+      return {
+        ok: false,
+        message: `Aufwandskonto ${line.expenseAccount} ist ungültig oder kein Aufwandskonto.`,
+      }
+    }
   }
 
   const totals = calculateInvoiceTotals(toInvoiceLines(invoice))
