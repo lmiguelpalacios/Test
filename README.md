@@ -31,11 +31,12 @@ npm run typecheck
 npm test
 ```
 
-### Buchhaltung, Verkauf, Einkauf & Persistenz
+### Buchhaltung, Verkauf, Einkauf, Berichte & Persistenz
 
 - Gemeinsame Journal-Datenquelle (`AccountingProvider` + Workspace-`localStorage` v3)
 - Verkauf: Kunden, Produkte, Ausgangsrechnungen (Entwurf → buchen → Zahlungen)
 - Einkauf: Lieferanten, Bestellungen, Wareneingang, Eingangsrechnungen, Zahlungsausgänge
+- Berichte: SuSa, Kontenblatt, GuV, Bilanz, offene Posten — nur aus Journal/Belegen
 - Buchungen nur über zentrales Journal (Forderungen/Verbindlichkeiten, USt/VSt, Bank)
 - Gemeinsamer Produktkatalog; Bestand aus Bewegungen (WE +, Verkauf −)
 - Speichern/Laden inkl. Verkauf + Einkauf; Reset auf Demo in der Buchhaltung
@@ -47,10 +48,11 @@ npm test
 ```
 src/
   accounting/   # Journal, Persistenz, AccountingProvider
-  components/   # UI (Buchhaltung, Verkauf, Einkauf, …)
+  components/   # UI (Buchhaltung, Verkauf, Einkauf, Berichte, …)
   data/         # Demo-Daten
   layout/       # Sidebar, Topbar, App-Layout
-  purchase/     # Einkaufslogik (Status, Bestand, Buchungsentwürfe)
+  purchase/     # Einkaufslogik
+  reports/      # Auswertung aus Journal/Belegen
   sales/        # Verkaufslogik
   pages/        # Seiten je Bereich
   types/        # TypeScript-Typen
@@ -67,7 +69,7 @@ supabase/       # Stub — nicht angebunden
 | Einkauf        | Lieferanten, Bestellungen, WE, ER, Zahlungen|
 | Lager          | Verweis auf Produkte/Bestände im Einkauf    |
 | Kontakte       | Platzhalter                                 |
-| Berichte       | Platzhalter                                 |
+| Berichte       | SuSa, Kontenblatt, GuV, Bilanz, offene Posten|
 | Einstellungen  | Platzhalter                                 |
 
 Alle Demo-Daten sind in der UI klar gekennzeichnet. Es gibt keine echte Buchhaltung und keine Datenbank.

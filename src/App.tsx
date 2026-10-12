@@ -1,7 +1,15 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AccountingProvider } from './accounting/AccountingContext'
 import { AppLayout } from './layout/AppLayout'
-import { BerichtePage } from './pages/BerichtePage'
+import {
+  AccountLedgerPage,
+  BalanceSheetPage,
+  BerichteLayout,
+  BerichteOverviewPage,
+  IncomeStatementPage,
+  OpenItemsPage,
+  TrialBalancePage,
+} from './pages/BerichtePage'
 import {
   BuchhaltungLayout,
   BuchhaltungOverviewPage,
@@ -72,7 +80,15 @@ export default function App() {
             </Route>
             <Route path="lager" element={<LagerPage />} />
             <Route path="kontakte" element={<KontaktePage />} />
-            <Route path="berichte" element={<BerichtePage />} />
+            <Route path="berichte" element={<BerichteLayout />}>
+              <Route index element={<BerichteOverviewPage />} />
+              <Route path="susa" element={<TrialBalancePage />} />
+              <Route path="kontenblatt" element={<AccountLedgerPage />} />
+              <Route path="kontenblatt/:accountNumber" element={<AccountLedgerPage />} />
+              <Route path="guv" element={<IncomeStatementPage />} />
+              <Route path="bilanz" element={<BalanceSheetPage />} />
+              <Route path="offen" element={<OpenItemsPage />} />
+            </Route>
             <Route path="einstellungen" element={<EinstellungenPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
