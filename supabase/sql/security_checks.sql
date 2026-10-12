@@ -36,7 +36,7 @@ where n.nspname = 'public'
   )
   and (
     p.prosecdef is not true
-    or coalesce(p.proconfig, array[]::text[]) not && array['search_path=public']
+    or not (coalesce(p.proconfig, array[]::text[]) && array['search_path=public'])
   );
 
 -- Expect: 0 rows — no authenticated write policies on catalogs

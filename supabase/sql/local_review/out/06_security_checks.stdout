@@ -1,0 +1,20 @@
+ table_without_rls 
+-------------------
+(0 rows)
+
+ proname 
+---------
+(0 rows)
+
+ polname | relname | polcmd 
+---------+---------+--------
+(0 rows)
+
+ polname 
+---------
+(0 rows)
+
+ proname | rolname 
+---------+---------
+(0 rows)
+

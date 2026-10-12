@@ -25,8 +25,18 @@ In diesem Ordner liegen **nur Repo-Artefakte** — keine Credentials, kein Clien
 - Repo: `docs/supabase-security-audit.md`, `docs/supabase-security-remediation.md`
 - Store: `docs/supabase-architektur.md`, `docs/supabase-implementierungsplan.md`, Spiegel der Schema-/Security-Docs
 
+## Lokale Review-DB (isoliert)
+
+```bash
+./supabase/sql/local_review/run_local_review.sh
+```
+
+Voraussetzung: lokales PostgreSQL (kein Docker/Supabase CLI nötig).  
+Ergebnisse: `docs/supabase-review-results.md`, Rohdaten unter `sql/local_review/out/`.  
+**Kein** Remote-Deploy.
+
 ## Nächster Schritt (außerhalb dieses Auftrags)
 
-1. Isolierte Review-DB + `security_checks.sql`  
-2. Echte Booking-RPC-Bodies  
+1. Echte Booking-RPC-Bodies  
+2. Optional: gleiche Checks auf isolierter Supabase-Review-Instanz (nicht Prod)  
 3. Erst dann erneutes Deploy-Sign-off — **nicht** automatisch  
