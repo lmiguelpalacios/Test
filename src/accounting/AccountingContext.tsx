@@ -1,0 +1,1109 @@
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
+import type {
+  JournalEntry,
+  JournalEntryDraft,
+  ValidationIssue,
+} from '../types/accounting'
+import type {
+  LearningAnswer,
+  LearningState,
+  TaskProgress,
+} from '../types/learning'
+import type {
+  GoodsReceipt,
+  GoodsReceiptLine,
+  PurchaseOrder,
+  PurchaseState,
+  StockMovement,
+  Supplier,
+  VendorInvoice,
+  VendorPayment,
+} from '../types/purchase'
+import type {
+  Customer,
+  InvoicePayment,
+  Product,
+  SalesInvoice,
+  SalesState,
+} from '../types/sales'
+import { chartOfAccounts } from '../data/chart-of-accounts'
+import { createJournalEntryId } from '../data/journal-entries'
+import {
+  computeLearningTotalPoints,
+  getLearningTaskById,
+} from '../data/learning-tasks'
+import {
+  evaluateLearningAnswer,
+  solutionToPracticeDraft,
+} from '../learning/evaluateAnswer'
+import type { EvaluationResult } from '../types/learning'
+import {
+  formatGoodsReceiptNumber,
+  formatPurchaseOrderNumber,
+  formatVendorInvoiceNumber,
+} from '../data/purchase-demo'
+import { createId, formatInvoiceNumber } from '../data/sales-demo'
+import { buildVendorInvoiceBookingDrafts } from '../purchase/bookVendorInvoice'
+import {
+  aggregateReceiptQuantities,
+  remainingQuantityForLine,
+} from '../purchase/orderStatus'
+import { buildVendorPaymentDraft } from '../purchase/recordVendorPayment'
+import { buildGoodsReceiptStockMovements } from '../purchase/stock'
+import { buildInvoiceBookingDrafts } from '../sales/bookInvoice'
+import { validateInvoiceLine } from '../sales/invoiceMath'
+import { buildPaymentBookingDraft } from '../sales/recordPayment'
+import {
+  loadWorkspace,
+  resetWorkspace,
+  saveWorkspace,
+  type JournalLoadSource,
+} from './journalStore'
+import {
+  BOOKING_PERIOD_LABEL,
+  computeAccountingTotals,
+  sortEntriesNewestFirst,
+} from './totals'
+import { validateJournalEntry } from './validateEntry'
+
+type AddEntryResult =
+  | { ok: true; entry: JournalEntry }
+  | { ok: false; issues: ValidationIssue[] }
+
+type ActionResult = { ok: true } | { ok: false; message: string }
+
+interface AccountingContextValue {
+  entries: JournalEntry[]
+  sales: SalesState
+  purchase: PurchaseState
+  periodLabel: string
+  totals: ReturnType<typeof computeAccountingTotals>
+  persistSource: JournalLoadSource
+  persistWarning?: string
+  isLocalDemoMode: true
+  addEntry: (draft: JournalEntryDraft) => AddEntryResult
+  resetToDemo: () => void
+  upsertCustomer: (customer: Omit<Customer, 'id'> & { id?: string }) => Customer
+  upsertProduct: (product: Omit<Product, 'id'> & { id?: string }) => Product
+  saveDraftInvoice: (
+    input: Omit<
+      SalesInvoice,
+      'id' | 'number' | 'journalEntryIds' | 'createdAt' | 'updatedAt' | 'bookedAt'
+    > & { id?: string; number?: string },
+  ) => ActionResult & { invoice?: SalesInvoice }
+  bookInvoice: (invoiceId: string) => ActionResult
+  recordInvoicePayment: (
+    invoiceId: string,
+    input: {
+      date: string
+      amountCents: number
+      bankAccount: '1200' | '1000'
+      reference?: string
+    },
+  ) => ActionResult
+  upsertSupplier: (supplier: Omit<Supplier, 'id'> & { id?: string }) => Supplier
+  savePurchaseOrder: (
+    input: Omit<PurchaseOrder, 'id' | 'number' | 'createdAt' | 'updatedAt'> & {
+      id?: string
+      number?: string
+    },
+  ) => ActionResult & { order?: PurchaseOrder }
+  confirmPurchaseOrder: (orderId: string) => ActionResult
+  recordGoodsReceipt: (
+    orderId: string,
+    input: { receiptDate: string; lines: GoodsReceiptLine[] },
+  ) => ActionResult & { receipt?: GoodsReceipt }
+  saveVendorInvoice: (
+    input: Omit<
+      VendorInvoice,
+      'id' | 'internalNumber' | 'journalEntryIds' | 'createdAt' | 'updatedAt' | 'bookedAt'
+    > & { id?: string; internalNumber?: string },
+  ) => ActionResult & { invoice?: VendorInvoice }
+  bookVendorInvoice: (invoiceId: string) => ActionResult
+  recordVendorPayment: (
+    invoiceId: string,
+    input: {
+      date: string
+      amountCents: number
+      bankAccount: '1200' | '1000'
+      reference?: string
+    },
+  ) => ActionResult
+  learning: LearningState
+  /** Prüft Antwort — schreibt kein Journal. */
+  submitLearningAnswer: (
+    taskId: string,
+    answer: LearningAnswer,
+  ) => ActionResult & { evaluation?: EvaluationResult }
+  /** Markiert Aufgabe abgeschlossen (nach Bewertung). */
+  completeLearningTask: (taskId: string) => ActionResult
+  /**
+   * Übernimmt Musterlösung ins echte Journal — nur nach Nutzerbestätigung in der UI
+   * und nur wenn die Aufgabe abgeschlossen ist.
+   */
+  postLearningPracticeEntry: (taskId: string) => ActionResult
+}
+
+const AccountingContext = createContext<AccountingContextValue | null>(null)
+
+function getBrowserStorage(): Storage | null {
+  if (typeof window === 'undefined') return null
+  try {
+    return window.localStorage
+  } catch {
+    return null
+  }
+}
+
+function noopStorage() {
+  return {
+    getItem: () => null,
+    setItem: () => undefined,
+    removeItem: () => undefined,
+  }
+}
+
+function createStockMovementsForSalesInvoice(
+  invoice: SalesInvoice,
+  products: Product[],
+): StockMovement[] {
+  const now = new Date().toISOString()
+  const movements: StockMovement[] = []
+  for (const line of invoice.lines) {
+    if (!line.productId) continue
+    const product = products.find((item) => item.id === line.productId)
+    if (!product?.tracksStock) continue
+    movements.push({
+      id: createId('sm'),
+      productId: line.productId,
+      date: invoice.issueDate,
+      quantityDelta: -line.quantity,
+      sourceType: 'verkauf',
+      sourceId: invoice.id,
+      note: invoice.number,
+      createdAt: now,
+    })
+  }
+  return movements
+}
+
+export function AccountingProvider({ children }: { children: ReactNode }) {
+  const initial = useMemo(() => {
+    const storage = getBrowserStorage()
+    if (!storage) {
+      const loaded = loadWorkspace(noopStorage())
+      return {
+        ...loaded,
+        warning: 'localStorage ist nicht verfügbar — Änderungen bleiben nicht erhalten.',
+      }
+    }
+    return loadWorkspace(storage)
+  }, [])
+
+  const [entries, setEntries] = useState<JournalEntry[]>(initial.entries)
+  const [sales, setSales] = useState<SalesState>(initial.sales)
+  const [purchase, setPurchase] = useState<PurchaseState>(initial.purchase)
+  const [learning, setLearning] = useState<LearningState>(initial.learning)
+  const [persistSource, setPersistSource] = useState<JournalLoadSource>(initial.source)
+  const [persistWarning, setPersistWarning] = useState<string | undefined>(
+    initial.warning,
+  )
+  const bookingLocks = useRef(new Set<string>())
+
+  useEffect(() => {
+    const storage = getBrowserStorage()
+    if (!storage) return
+    try {
+      saveWorkspace({ entries, sales, purchase, learning }, storage)
+    } catch {
+      setPersistWarning(
+        'Daten konnten nicht im Browser gespeichert werden (localStorage voll oder blockiert).',
+      )
+    }
+  }, [entries, sales, purchase, learning])
+
+  const addEntry = useCallback((draft: JournalEntryDraft): AddEntryResult => {
+    const result = validateJournalEntry(draft, chartOfAccounts)
+    if (!result.ok) return result
+    const entry: JournalEntry = {
+      ...result.entry,
+      id: createJournalEntryId(),
+      createdAt: new Date().toISOString(),
+    }
+    setEntries((prev) => [entry, ...prev])
+    setPersistSource('storage')
+    return { ok: true, entry }
+  }, [])
+
+  const resetToDemo = useCallback(() => {
+    const storage = getBrowserStorage() ?? noopStorage()
+    const demo = resetWorkspace(storage)
+    setEntries(demo.entries)
+    setSales(demo.sales)
+    setPurchase(demo.purchase)
+    setLearning(demo.learning)
+    setPersistSource('demo')
+    setPersistWarning(
+      getBrowserStorage()
+        ? undefined
+        : 'localStorage ist nicht verfügbar — Demo nur im Arbeitsspeicher geladen.',
+    )
+  }, [])
+
+  const submitLearningAnswer = useCallback(
+    (
+      taskId: string,
+      answer: LearningAnswer,
+    ): ActionResult & { evaluation?: EvaluationResult } => {
+      const task = getLearningTaskById(taskId)
+      if (!task) return { ok: false, message: 'Lernaufgabe nicht gefunden.' }
+      const evaluation = evaluateLearningAnswer(task, answer)
+      const now = new Date().toISOString()
+      setLearning((prev) => {
+        const existing = prev.progress.find((item) => item.taskId === taskId)
+        const nextItem: TaskProgress = {
+          taskId,
+          attempts: (existing?.attempts ?? 0) + 1,
+          bestScore: Math.max(existing?.bestScore ?? 0, evaluation.score),
+          completed: existing?.completed ?? false,
+          lastAttemptAt: now,
+          practicePostedAt: existing?.practicePostedAt,
+        }
+        if (evaluation.fullyCorrect) {
+          nextItem.completed = true
+        }
+        const progress = existing
+          ? prev.progress.map((item) =>
+              item.taskId === taskId ? nextItem : item,
+            )
+          : [...prev.progress, nextItem]
+        return {
+          progress,
+          lastTaskId: taskId,
+          totalPoints: computeLearningTotalPoints(progress),
+        }
+      })
+      setPersistSource('storage')
+      return { ok: true, evaluation }
+    },
+    [],
+  )
+
+  const completeLearningTask = useCallback((taskId: string): ActionResult => {
+    const task = getLearningTaskById(taskId)
+    if (!task) return { ok: false, message: 'Lernaufgabe nicht gefunden.' }
+    setLearning((prev) => {
+      const existing = prev.progress.find((item) => item.taskId === taskId)
+      if (!existing) return prev
+      const progress = prev.progress.map((item) =>
+        item.taskId === taskId ? { ...item, completed: true } : item,
+      )
+      return {
+        ...prev,
+        progress,
+        lastTaskId: taskId,
+        totalPoints: computeLearningTotalPoints(progress),
+      }
+    })
+    setPersistSource('storage')
+    return { ok: true }
+  }, [])
+
+  const postLearningPracticeEntry = useCallback(
+    (taskId: string): ActionResult => {
+      const task = getLearningTaskById(taskId)
+      if (!task) return { ok: false, message: 'Lernaufgabe nicht gefunden.' }
+      if (!task.allowPracticeJournalPost) {
+        return {
+          ok: false,
+          message: 'Diese Aufgabe erlaubt keine Übungsbuchung ins Journal.',
+        }
+      }
+      const progress = learning.progress.find((item) => item.taskId === taskId)
+      if (!progress?.completed) {
+        return {
+          ok: false,
+          message:
+            'Erst die Aufgabe vollständig lösen und abschließen — danach optional ins Journal übernehmen.',
+        }
+      }
+      if (progress.practicePostedAt) {
+        return {
+          ok: false,
+          message: 'Die Übungsbuchung wurde für diese Aufgabe bereits übernommen.',
+        }
+      }
+      const lockKey = `learn-post:${taskId}`
+      if (bookingLocks.current.has(lockKey)) {
+        return { ok: false, message: 'Übernahme läuft bereits.' }
+      }
+      bookingLocks.current.add(lockKey)
+      try {
+        const draft = solutionToPracticeDraft(task)
+        const result = validateJournalEntry(draft, chartOfAccounts)
+        if (!result.ok) {
+          return {
+            ok: false,
+            message: result.issues[0]?.message ?? 'Übungsbuchung ungültig.',
+          }
+        }
+        const entry: JournalEntry = {
+          ...result.entry,
+          id: createJournalEntryId(),
+          createdAt: new Date().toISOString(),
+        }
+        setEntries((prev) => [entry, ...prev])
+        setLearning((prev) => ({
+          ...prev,
+          progress: prev.progress.map((item) =>
+            item.taskId === taskId
+              ? { ...item, practicePostedAt: entry.createdAt }
+              : item,
+          ),
+        }))
+        setPersistSource('storage')
+        return { ok: true }
+      } finally {
+        bookingLocks.current.delete(lockKey)
+      }
+    },
+    [learning.progress],
+  )
+
+  const upsertCustomer = useCallback(
+    (input: Omit<Customer, 'id'> & { id?: string }): Customer => {
+      const customer: Customer = {
+        id: input.id ?? createId('cust'),
+        number: input.number.trim(),
+        companyName: input.companyName.trim(),
+        contactName: input.contactName?.trim() || undefined,
+        billingAddress: input.billingAddress.trim(),
+        email: input.email?.trim() || undefined,
+      }
+      setSales((prev) => {
+        const exists = prev.customers.some((item) => item.id === customer.id)
+        return {
+          ...prev,
+          customers: exists
+            ? prev.customers.map((item) => (item.id === customer.id ? customer : item))
+            : [...prev.customers, customer],
+        }
+      })
+      setPersistSource('storage')
+      return customer
+    },
+    [],
+  )
+
+  const upsertProduct = useCallback(
+    (input: Omit<Product, 'id'> & { id?: string }): Product => {
+      const product: Product = {
+        id: input.id ?? createId('prod'),
+        sku: input.sku.trim(),
+        name: input.name.trim(),
+        description: input.description?.trim() || undefined,
+        netUnitPriceCents: input.netUnitPriceCents,
+        netPurchasePriceCents: input.netPurchasePriceCents,
+        vatRate: input.vatRate,
+        tracksStock: input.tracksStock,
+        minStockQuantity: input.minStockQuantity,
+      }
+      setSales((prev) => {
+        const exists = prev.products.some((item) => item.id === product.id)
+        return {
+          ...prev,
+          products: exists
+            ? prev.products.map((item) => (item.id === product.id ? product : item))
+            : [...prev.products, product],
+        }
+      })
+      setPersistSource('storage')
+      return product
+    },
+    [],
+  )
+
+  const saveDraftInvoice = useCallback(
+    (
+      input: Omit<
+        SalesInvoice,
+        'id' | 'number' | 'journalEntryIds' | 'createdAt' | 'updatedAt' | 'bookedAt'
+      > & { id?: string; number?: string },
+    ): ActionResult & { invoice?: SalesInvoice } => {
+      if (input.lines.length === 0) {
+        return { ok: false, message: 'Mindestens eine Position ist erforderlich.' }
+      }
+      for (const line of input.lines) {
+        const error = validateInvoiceLine(line)
+        if (error) return { ok: false, message: error }
+      }
+
+      const now = new Date().toISOString()
+      let saved: SalesInvoice | undefined
+      let blocked = false
+
+      setSales((prev) => {
+        if (!prev.customers.some((customer) => customer.id === input.customerId)) {
+          blocked = true
+          return prev
+        }
+        const existing = input.id
+          ? prev.invoices.find((invoice) => invoice.id === input.id)
+          : undefined
+        if (existing && existing.journalEntryIds.length > 0) {
+          blocked = true
+          return prev
+        }
+        const invoice: SalesInvoice = {
+          id: existing?.id ?? createId('inv'),
+          number:
+            existing?.number ??
+            input.number ??
+            formatInvoiceNumber(prev.nextInvoiceSequence),
+          issueDate: input.issueDate,
+          dueDate: input.dueDate,
+          customerId: input.customerId,
+          lines: input.lines.map((line) => ({ ...line })),
+          journalEntryIds: [],
+          createdAt: existing?.createdAt ?? now,
+          updatedAt: now,
+        }
+        saved = invoice
+        return {
+          ...prev,
+          invoices: existing
+            ? prev.invoices.map((item) => (item.id === existing.id ? invoice : item))
+            : [...prev.invoices, invoice],
+          nextInvoiceSequence: existing
+            ? prev.nextInvoiceSequence
+            : prev.nextInvoiceSequence + 1,
+        }
+      })
+
+      if (blocked || !saved) {
+        return {
+          ok: false,
+          message:
+            'Rechnung konnte nicht gespeichert werden (ungültiger Kunde oder bereits gebucht).',
+        }
+      }
+      setPersistSource('storage')
+      return { ok: true, invoice: saved }
+    },
+    [],
+  )
+
+  const bookInvoice = useCallback(
+    (invoiceId: string): ActionResult => {
+      if (bookingLocks.current.has(`book:${invoiceId}`)) {
+        return { ok: false, message: 'Buchung läuft bereits — Doppelklick verhindert.' }
+      }
+      bookingLocks.current.add(`book:${invoiceId}`)
+      try {
+        const invoice = sales.invoices.find((item) => item.id === invoiceId)
+        if (!invoice) return { ok: false, message: 'Rechnung nicht gefunden.' }
+        if (invoice.journalEntryIds.length > 0) {
+          return { ok: false, message: 'Diese Rechnung wurde bereits gebucht.' }
+        }
+        const customer = sales.customers.find((item) => item.id === invoice.customerId)
+        const built = buildInvoiceBookingDrafts(invoice, customer)
+        if (!built.ok) return built
+
+        const createdEntries: JournalEntry[] = []
+        for (const draft of built.drafts) {
+          const result = validateJournalEntry(draft, chartOfAccounts)
+          if (!result.ok) {
+            return {
+              ok: false,
+              message: result.issues[0]?.message ?? 'Buchung ungültig.',
+            }
+          }
+          createdEntries.push({
+            ...result.entry,
+            id: createJournalEntryId(),
+            createdAt: new Date().toISOString(),
+          })
+        }
+        const createdIds = createdEntries.map((entry) => entry.id)
+        const bookedAt = new Date().toISOString()
+        const stockMoves = createStockMovementsForSalesInvoice(invoice, sales.products)
+
+        let linked = false
+        setSales((prev) => {
+          const current = prev.invoices.find((item) => item.id === invoiceId)
+          if (!current || current.journalEntryIds.length > 0) return prev
+          linked = true
+          return {
+            ...prev,
+            invoices: prev.invoices.map((item) =>
+              item.id === invoiceId
+                ? {
+                    ...item,
+                    journalEntryIds: createdIds,
+                    bookedAt,
+                    updatedAt: bookedAt,
+                  }
+                : item,
+            ),
+          }
+        })
+        if (!linked) {
+          return { ok: false, message: 'Diese Rechnung wurde bereits gebucht.' }
+        }
+
+        if (stockMoves.length > 0) {
+          setPurchase((prev) => ({
+            ...prev,
+            stockMovements: [...prev.stockMovements, ...stockMoves],
+          }))
+        }
+        setEntries((prev) => [...createdEntries, ...prev])
+        setPersistSource('storage')
+        return { ok: true }
+      } finally {
+        bookingLocks.current.delete(`book:${invoiceId}`)
+      }
+    },
+    [sales.invoices, sales.customers, sales.products],
+  )
+
+  const recordInvoicePayment = useCallback(
+    (
+      invoiceId: string,
+      input: {
+        date: string
+        amountCents: number
+        bankAccount: '1200' | '1000'
+        reference?: string
+      },
+    ): ActionResult => {
+      const lockKey = `pay:${invoiceId}`
+      if (bookingLocks.current.has(lockKey)) {
+        return { ok: false, message: 'Zahlung wird bereits verarbeitet.' }
+      }
+      bookingLocks.current.add(lockKey)
+      try {
+        const invoice = sales.invoices.find((item) => item.id === invoiceId)
+        if (!invoice) return { ok: false, message: 'Rechnung nicht gefunden.' }
+        const built = buildPaymentBookingDraft(invoice, sales.payments, input)
+        if (!built.ok) return built
+        const result = validateJournalEntry(built.draft, chartOfAccounts)
+        if (!result.ok) {
+          return {
+            ok: false,
+            message: result.issues[0]?.message ?? 'Zahlungsbuchung ungültig.',
+          }
+        }
+        const entry: JournalEntry = {
+          ...result.entry,
+          id: createJournalEntryId(),
+          createdAt: new Date().toISOString(),
+        }
+        const payment: InvoicePayment = {
+          id: createId('pay'),
+          invoiceId,
+          date: input.date,
+          amountCents: built.amountCents,
+          bankAccount: input.bankAccount,
+          reference: input.reference?.trim() || undefined,
+          journalEntryId: entry.id,
+          createdAt: entry.createdAt,
+        }
+        let accepted = false
+        setSales((prev) => {
+          const current = prev.invoices.find((item) => item.id === invoiceId)
+          if (!current || current.journalEntryIds.length === 0) return prev
+          const openCheck = buildPaymentBookingDraft(current, prev.payments, input)
+          if (!openCheck.ok) return prev
+          accepted = true
+          return {
+            ...prev,
+            payments: [...prev.payments, payment],
+            invoices: prev.invoices.map((item) =>
+              item.id === invoiceId
+                ? { ...item, updatedAt: new Date().toISOString() }
+                : item,
+            ),
+          }
+        })
+        if (!accepted) {
+          return {
+            ok: false,
+            message: 'Zahlung konnte nicht gespeichert werden (Status geändert).',
+          }
+        }
+        setEntries((prev) => [entry, ...prev])
+        setPersistSource('storage')
+        return { ok: true }
+      } finally {
+        bookingLocks.current.delete(lockKey)
+      }
+    },
+    [sales.invoices, sales.payments],
+  )
+
+  const upsertSupplier = useCallback(
+    (input: Omit<Supplier, 'id'> & { id?: string }): Supplier => {
+      const supplier: Supplier = {
+        id: input.id ?? createId('sup'),
+        number: input.number.trim(),
+        companyName: input.companyName.trim(),
+        contactName: input.contactName?.trim() || undefined,
+        billingAddress: input.billingAddress.trim(),
+        email: input.email?.trim() || undefined,
+      }
+      setPurchase((prev) => {
+        const exists = prev.suppliers.some((item) => item.id === supplier.id)
+        return {
+          ...prev,
+          suppliers: exists
+            ? prev.suppliers.map((item) => (item.id === supplier.id ? supplier : item))
+            : [...prev.suppliers, supplier],
+        }
+      })
+      setPersistSource('storage')
+      return supplier
+    },
+    [],
+  )
+
+  const savePurchaseOrder = useCallback(
+    (
+      input: Omit<PurchaseOrder, 'id' | 'number' | 'createdAt' | 'updatedAt'> & {
+        id?: string
+        number?: string
+      },
+    ): ActionResult & { order?: PurchaseOrder } => {
+      if (input.lines.length === 0) {
+        return { ok: false, message: 'Mindestens eine Bestellposition ist erforderlich.' }
+      }
+      const now = new Date().toISOString()
+      let saved: PurchaseOrder | undefined
+      let blocked = false
+      setPurchase((prev) => {
+        if (!prev.suppliers.some((supplier) => supplier.id === input.supplierId)) {
+          blocked = true
+          return prev
+        }
+        const existing = input.id
+          ? prev.orders.find((order) => order.id === input.id)
+          : undefined
+        if (existing?.confirmedAt) {
+          blocked = true
+          return prev
+        }
+        const order: PurchaseOrder = {
+          id: existing?.id ?? createId('po'),
+          number:
+            existing?.number ??
+            input.number ??
+            formatPurchaseOrderNumber(prev.nextOrderSequence),
+          supplierId: input.supplierId,
+          orderDate: input.orderDate,
+          lines: input.lines.map((line) => ({ ...line })),
+          confirmedAt: existing?.confirmedAt,
+          createdAt: existing?.createdAt ?? now,
+          updatedAt: now,
+        }
+        saved = order
+        return {
+          ...prev,
+          orders: existing
+            ? prev.orders.map((item) => (item.id === existing.id ? order : item))
+            : [...prev.orders, order],
+          nextOrderSequence: existing
+            ? prev.nextOrderSequence
+            : prev.nextOrderSequence + 1,
+        }
+      })
+      if (blocked || !saved) {
+        return {
+          ok: false,
+          message: 'Bestellung konnte nicht gespeichert werden.',
+        }
+      }
+      setPersistSource('storage')
+      return { ok: true, order: saved }
+    },
+    [],
+  )
+
+  const confirmPurchaseOrder = useCallback((orderId: string): ActionResult => {
+    let ok = false
+    setPurchase((prev) => {
+      const order = prev.orders.find((item) => item.id === orderId)
+      if (!order || order.confirmedAt) return prev
+      ok = true
+      const confirmedAt = new Date().toISOString()
+      return {
+        ...prev,
+        orders: prev.orders.map((item) =>
+          item.id === orderId
+            ? { ...item, confirmedAt, updatedAt: confirmedAt }
+            : item,
+        ),
+      }
+    })
+    if (!ok) return { ok: false, message: 'Bestellung nicht gefunden oder bereits bestätigt.' }
+    setPersistSource('storage')
+    return { ok: true }
+  }, [])
+
+  const recordGoodsReceipt = useCallback(
+    (
+      orderId: string,
+      input: { receiptDate: string; lines: GoodsReceiptLine[] },
+    ): ActionResult & { receipt?: GoodsReceipt } => {
+      const order = purchase.orders.find((item) => item.id === orderId)
+      if (!order) return { ok: false, message: 'Bestellung nicht gefunden.' }
+      if (!order.confirmedAt) {
+        return { ok: false, message: 'Wareneingang nur für bestätigte Bestellungen.' }
+      }
+      if (input.lines.length === 0) {
+        return { ok: false, message: 'Bitte gelieferte Mengen angeben.' }
+      }
+      for (const line of input.lines) {
+        if (!(line.quantity > 0)) {
+          return { ok: false, message: 'Liefermengen müssen größer als 0 sein.' }
+        }
+      }
+      const aggregated = aggregateReceiptQuantities(input.lines)
+      for (const [orderLineId, quantity] of aggregated) {
+        const remaining = remainingQuantityForLine(order, orderLineId, purchase.receipts)
+        if (quantity > remaining) {
+          return {
+            ok: false,
+            message: `Überlieferung verhindert (max. noch ${remaining}).`,
+          }
+        }
+      }
+
+      const now = new Date().toISOString()
+      let receipt: GoodsReceipt | undefined
+
+      setPurchase((prev) => {
+        const current = prev.orders.find((item) => item.id === orderId)
+        if (!current?.confirmedAt) return prev
+        const aggregatedInUpdater = aggregateReceiptQuantities(input.lines)
+        for (const [orderLineId, quantity] of aggregatedInUpdater) {
+          const remaining = remainingQuantityForLine(current, orderLineId, prev.receipts)
+          if (quantity > remaining) return prev
+        }
+        const nextReceipt: GoodsReceipt = {
+          id: createId('gr'),
+          number: formatGoodsReceiptNumber(prev.nextReceiptSequence),
+          orderId,
+          receiptDate: input.receiptDate,
+          lines: input.lines.map((line) => ({ ...line })),
+          createdAt: now,
+        }
+        // Rein lokal im Updater — kein geteiltes Array (Strict Mode).
+        const newMoves = buildGoodsReceiptStockMovements({
+          order: current,
+          receipt: nextReceipt,
+          lines: input.lines,
+          products: sales.products,
+          createMovementId: () => createId('sm'),
+          createdAt: now,
+        })
+        receipt = nextReceipt
+        return {
+          ...prev,
+          receipts: [...prev.receipts, nextReceipt],
+          stockMovements: [...prev.stockMovements, ...newMoves],
+          nextReceiptSequence: prev.nextReceiptSequence + 1,
+          orders: prev.orders.map((item) =>
+            item.id === orderId ? { ...item, updatedAt: now } : item,
+          ),
+        }
+      })
+
+      if (!receipt) {
+        return { ok: false, message: 'Wareneingang konnte nicht gespeichert werden.' }
+      }
+      setPersistSource('storage')
+      return { ok: true, receipt }
+    },
+    [purchase.orders, purchase.receipts, sales.products],
+  )
+
+  const saveVendorInvoice = useCallback(
+    (
+      input: Omit<
+        VendorInvoice,
+        'id' | 'internalNumber' | 'journalEntryIds' | 'createdAt' | 'updatedAt' | 'bookedAt'
+      > & { id?: string; internalNumber?: string },
+    ): ActionResult & { invoice?: VendorInvoice } => {
+      if (input.lines.length === 0) {
+        return { ok: false, message: 'Mindestens eine Position ist erforderlich.' }
+      }
+      const now = new Date().toISOString()
+      let saved: VendorInvoice | undefined
+      let blocked = false
+      setPurchase((prev) => {
+        if (!prev.suppliers.some((supplier) => supplier.id === input.supplierId)) {
+          blocked = true
+          return prev
+        }
+        const existing = input.id
+          ? prev.vendorInvoices.find((invoice) => invoice.id === input.id)
+          : undefined
+        if (existing && existing.journalEntryIds.length > 0) {
+          blocked = true
+          return prev
+        }
+        const invoice: VendorInvoice = {
+          id: existing?.id ?? createId('vinv'),
+          externalNumber: input.externalNumber.trim(),
+          internalNumber:
+            existing?.internalNumber ??
+            input.internalNumber ??
+            formatVendorInvoiceNumber(prev.nextVendorInvoiceSequence),
+          supplierId: input.supplierId,
+          issueDate: input.issueDate,
+          dueDate: input.dueDate,
+          lines: input.lines.map((line) => ({ ...line })),
+          orderId: input.orderId,
+          journalEntryIds: [],
+          createdAt: existing?.createdAt ?? now,
+          updatedAt: now,
+        }
+        saved = invoice
+        return {
+          ...prev,
+          vendorInvoices: existing
+            ? prev.vendorInvoices.map((item) =>
+                item.id === existing.id ? invoice : item,
+              )
+            : [...prev.vendorInvoices, invoice],
+          nextVendorInvoiceSequence: existing
+            ? prev.nextVendorInvoiceSequence
+            : prev.nextVendorInvoiceSequence + 1,
+        }
+      })
+      if (blocked || !saved) {
+        return {
+          ok: false,
+          message: 'Eingangsrechnung konnte nicht gespeichert werden.',
+        }
+      }
+      setPersistSource('storage')
+      return { ok: true, invoice: saved }
+    },
+    [],
+  )
+
+  const bookVendorInvoice = useCallback(
+    (invoiceId: string): ActionResult => {
+      if (bookingLocks.current.has(`vbook:${invoiceId}`)) {
+        return { ok: false, message: 'Buchung läuft bereits.' }
+      }
+      bookingLocks.current.add(`vbook:${invoiceId}`)
+      try {
+        const invoice = purchase.vendorInvoices.find((item) => item.id === invoiceId)
+        if (!invoice) return { ok: false, message: 'Eingangsrechnung nicht gefunden.' }
+        if (invoice.journalEntryIds.length > 0) {
+          return { ok: false, message: 'Diese Eingangsrechnung wurde bereits gebucht.' }
+        }
+        const supplier = purchase.suppliers.find((item) => item.id === invoice.supplierId)
+        const built = buildVendorInvoiceBookingDrafts(invoice, supplier)
+        if (!built.ok) return built
+
+        const createdEntries: JournalEntry[] = []
+        for (const draft of built.drafts) {
+          const result = validateJournalEntry(draft, chartOfAccounts)
+          if (!result.ok) {
+            return {
+              ok: false,
+              message: result.issues[0]?.message ?? 'Buchung ungültig.',
+            }
+          }
+          createdEntries.push({
+            ...result.entry,
+            id: createJournalEntryId(),
+            createdAt: new Date().toISOString(),
+          })
+        }
+        const createdIds = createdEntries.map((entry) => entry.id)
+        const bookedAt = new Date().toISOString()
+        let linked = false
+        setPurchase((prev) => {
+          const current = prev.vendorInvoices.find((item) => item.id === invoiceId)
+          if (!current || current.journalEntryIds.length > 0) return prev
+          linked = true
+          return {
+            ...prev,
+            vendorInvoices: prev.vendorInvoices.map((item) =>
+              item.id === invoiceId
+                ? {
+                    ...item,
+                    journalEntryIds: createdIds,
+                    bookedAt,
+                    updatedAt: bookedAt,
+                  }
+                : item,
+            ),
+          }
+        })
+        if (!linked) {
+          return { ok: false, message: 'Diese Eingangsrechnung wurde bereits gebucht.' }
+        }
+        setEntries((prev) => [...createdEntries, ...prev])
+        setPersistSource('storage')
+        return { ok: true }
+      } finally {
+        bookingLocks.current.delete(`vbook:${invoiceId}`)
+      }
+    },
+    [purchase.vendorInvoices, purchase.suppliers],
+  )
+
+  const recordVendorPayment = useCallback(
+    (
+      invoiceId: string,
+      input: {
+        date: string
+        amountCents: number
+        bankAccount: '1200' | '1000'
+        reference?: string
+      },
+    ): ActionResult => {
+      const lockKey = `vpay:${invoiceId}`
+      if (bookingLocks.current.has(lockKey)) {
+        return { ok: false, message: 'Zahlung wird bereits verarbeitet.' }
+      }
+      bookingLocks.current.add(lockKey)
+      try {
+        const invoice = purchase.vendorInvoices.find((item) => item.id === invoiceId)
+        if (!invoice) return { ok: false, message: 'Eingangsrechnung nicht gefunden.' }
+        const built = buildVendorPaymentDraft(invoice, purchase.vendorPayments, input)
+        if (!built.ok) return built
+        const result = validateJournalEntry(built.draft, chartOfAccounts)
+        if (!result.ok) {
+          return {
+            ok: false,
+            message: result.issues[0]?.message ?? 'Zahlungsbuchung ungültig.',
+          }
+        }
+        const entry: JournalEntry = {
+          ...result.entry,
+          id: createJournalEntryId(),
+          createdAt: new Date().toISOString(),
+        }
+        const payment: VendorPayment = {
+          id: createId('vpay'),
+          invoiceId,
+          date: input.date,
+          amountCents: built.amountCents,
+          bankAccount: input.bankAccount,
+          reference: input.reference?.trim() || undefined,
+          journalEntryId: entry.id,
+          createdAt: entry.createdAt,
+        }
+        let accepted = false
+        setPurchase((prev) => {
+          const current = prev.vendorInvoices.find((item) => item.id === invoiceId)
+          if (!current || current.journalEntryIds.length === 0) return prev
+          const openCheck = buildVendorPaymentDraft(current, prev.vendorPayments, input)
+          if (!openCheck.ok) return prev
+          accepted = true
+          return {
+            ...prev,
+            vendorPayments: [...prev.vendorPayments, payment],
+            vendorInvoices: prev.vendorInvoices.map((item) =>
+              item.id === invoiceId
+                ? { ...item, updatedAt: new Date().toISOString() }
+                : item,
+            ),
+          }
+        })
+        if (!accepted) {
+          return { ok: false, message: 'Zahlung konnte nicht gespeichert werden.' }
+        }
+        setEntries((prev) => [entry, ...prev])
+        setPersistSource('storage')
+        return { ok: true }
+      } finally {
+        bookingLocks.current.delete(lockKey)
+      }
+    },
+    [purchase.vendorInvoices, purchase.vendorPayments],
+  )
+
+  const value = useMemo<AccountingContextValue>(
+    () => ({
+      entries: sortEntriesNewestFirst(entries),
+      sales,
+      purchase,
+      learning,
+      periodLabel: BOOKING_PERIOD_LABEL,
+      totals: computeAccountingTotals(entries, BOOKING_PERIOD_LABEL),
+      persistSource,
+      persistWarning,
+      isLocalDemoMode: true,
+      addEntry,
+      resetToDemo,
+      upsertCustomer,
+      upsertProduct,
+      saveDraftInvoice,
+      bookInvoice,
+      recordInvoicePayment,
+      upsertSupplier,
+      savePurchaseOrder,
+      confirmPurchaseOrder,
+      recordGoodsReceipt,
+      saveVendorInvoice,
+      bookVendorInvoice,
+      recordVendorPayment,
+      submitLearningAnswer,
+      completeLearningTask,
+      postLearningPracticeEntry,
+    }),
+    [
+      entries,
+      sales,
+      purchase,
+      learning,
+      persistSource,
+      persistWarning,
+      addEntry,
+      resetToDemo,
+      upsertCustomer,
+      upsertProduct,
+      saveDraftInvoice,
+      bookInvoice,
+      recordInvoicePayment,
+      upsertSupplier,
+      savePurchaseOrder,
+      confirmPurchaseOrder,
+      recordGoodsReceipt,
+      saveVendorInvoice,
+      bookVendorInvoice,
+      recordVendorPayment,
+      submitLearningAnswer,
+      completeLearningTask,
+      postLearningPracticeEntry,
+    ],
+  )
+
+  return (
+    <AccountingContext.Provider value={value}>{children}</AccountingContext.Provider>
+  )
+}
+
+export function useAccounting(): AccountingContextValue {
+  const ctx = useContext(AccountingContext)
+  if (!ctx) {
+    throw new Error('useAccounting muss innerhalb von AccountingProvider verwendet werden.')
+  }
+  return ctx
+}

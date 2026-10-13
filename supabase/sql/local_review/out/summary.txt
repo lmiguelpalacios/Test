@@ -1,0 +1,7 @@
+OK: 01_bootstrap
+OK: 02_schema
+OK: 03_rls
+OK: 04_grants
+OK: 05_rpc_stubs
+OK: 06_security_checks (see stdout; some queries informational)
+OK: 07_negative_tests
