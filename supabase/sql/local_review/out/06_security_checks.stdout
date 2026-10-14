@@ -1,0 +1,32 @@
+ table_without_rls 
+-------------------
+(0 rows)
+
+ proname 
+---------
+(0 rows)
+
+ polname | relname | polcmd 
+---------+---------+--------
+(0 rows)
+
+ polname 
+---------
+(0 rows)
+
+ proname | rolname 
+---------+---------
+(0 rows)
+
+ table_schema | table_name | privilege_type | grantee 
+--------------+------------+----------------+---------
+(0 rows)
+
+ object_schema | object_name | privilege_type | grantee 
+---------------+-------------+----------------+---------
+(0 rows)
+
+ table_name | privilege_type 
+------------+----------------
+(0 rows)
+

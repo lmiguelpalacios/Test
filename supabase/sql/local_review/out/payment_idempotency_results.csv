@@ -1,0 +1,18 @@
+case_id,ok,detail
+FIX_READY,t,org=b4766bd8-57cc-480b-bd0f-4aeaa96b2395 cust=25416e5e-c63d-4b80-a79b-dfa81258bf6f prod=168e16c6-7479-4c84-9059-56856539c407 sup=db365709-8222-4ce0-a99d-6c65340f7e9c
+IDX_SALES_PRESENT,t,sales_payments_natural_key_uidx
+IDX_VENDOR_PRESENT,t,vendor_payments_natural_key_uidx
+ZE_TEIL_DISTINCT,t,pay1=cabfebaa-c6df-452e-b984-811cf48ae6b9 pay2=c28403e1-96c6-4b04-96d5-96e2649f51a8
+ZE_TEIL_TWO_ROWS,t,rows=2
+ZE_RETRY_SAME_ID,t,original=cabfebaa-c6df-452e-b984-811cf48ae6b9 retry=cabfebaa-c6df-452e-b984-811cf48ae6b9
+ZE_RETRY_NO_EXTRA_ROW,t,rows=2
+ZE_SAME_AMT_DIFF_REF,t,pay1=cabfebaa-c6df-452e-b984-811cf48ae6b9 pay3=2759d032-73c3-4acc-b375-86eca71801f4
+ZE_THREE_ROWS,t,rows=3
+ZE_NULL_EMPTY_COALESCE,t,null_ref=56b51f6f-6304-4d3b-9a24-e3ab5d8363b2 empty_ref=56b51f6f-6304-4d3b-9a24-e3ab5d8363b2
+ZE_NULL_EMPTY_SINGLE_ROW,t,rows=1
+ZE_UNIQUE_BLOCKS_DUP,t,"duplicate key value violates unique constraint ""sales_payments_natural_key_uidx"""
+ZA_TEIL_AND_RETRY,t,p1=e51d32b9-82ae-48b3-a135-751d92764f50 p2=173b11ef-a7cc-46ba-b5b8-07526d8062bf retry=e51d32b9-82ae-48b3-a135-751d92764f50
+ZA_TWO_ROWS,t,rows=2
+ZA_UNIQUE_BLOCKS_DUP,t,"duplicate key value violates unique constraint ""vendor_payments_natural_key_uidx"""
+PARALLEL_SEED,t,invoice=86a6fdd5-6013-4ea6-a26b-0c04ae098303
+ZE_PARALLEL_TWO_SESSIONS,t,id=d4429c10-bf32-4d43-b4a7-6c605011d6bf rows=1

@@ -1,0 +1,2 @@
+psql:/workspace/supabase/sql/local_review/30_payment_idempotency_tests.sql:7: NOTICE:  table "payment_idempotency_results" does not exist, skipping
+psql:/workspace/supabase/sql/local_review/30_payment_idempotency_tests.sql:326: NOTICE:  table "_pay_idem_parallel_seed" does not exist, skipping
