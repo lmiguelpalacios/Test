@@ -93,10 +93,10 @@ No silent hybrid: supabase mode does **not** write the journal to localStorage; 
 ## Blockers / next
 
 1. ~~Remote apply `app_rpcs_v1` on review~~ — **done** (`tbxdoapspjhabcsxgllx`).
-2. `post_learning_practice` still stub.
-3. Draft-save paths: make invoice/PO/vendor saves fully async + await errors in UI.
-4. Cloudflare Pages deploy only with approved env pointing at review (not handels).
-5. handels freigabe out of scope.
+2. `post_learning_practice` still stub — UI honest-disabled in supabase mode.
+3. ~~Draft-save async + UUID + repo wire~~ — done (see release readiness).
+4. ~~Cloudflare Pages Preview → review~~ — https://nordlicht-preview.pages.dev
+5. handels freigabe out of scope — migration gap listed in `docs/nordlicht-release-readiness.md`.
 
 ## Safety
 

@@ -16,7 +16,7 @@ import { deriveVendorInvoiceStatus } from '../../purchase/recordVendorPayment'
 import { InvoiceStatusBadge } from '../verkauf/InvoiceStatusBadge'
 
 export function PurchaseOverview() {
-  const { purchase, persistWarning } = useAccounting()
+  const { purchase, persistWarning, isLocalDemoMode } = useAccounting()
   const openOrders = purchase.orders.filter((order) => {
     const status = derivePurchaseOrderStatus(order, purchase.receipts)
     return status === 'bestellt' || status === 'teilweise_geliefert'
@@ -36,7 +36,11 @@ export function PurchaseOverview() {
       />
       <PageHeader
         title="Einkauf"
-        subtitle="Bestellungen, Wareneingang, Eingangsrechnungen · lokale Lernsimulation"
+        subtitle={
+          isLocalDemoMode
+            ? 'Bestellungen, Wareneingang, Eingangsrechnungen · lokale Lernsimulation'
+            : 'Bestellungen, Wareneingang, Eingangsrechnungen · Online-Preview (Review-Backend)'
+        }
       />
 
       <section className="kpi-grid accounting-kpi-grid" aria-label="Einkaufskennzahlen">

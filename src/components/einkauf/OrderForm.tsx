@@ -57,7 +57,7 @@ export function OrderForm() {
     )
   }
 
-  function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     setError(null)
     const parsed: PurchaseOrderLine[] = []
@@ -78,7 +78,7 @@ export function OrderForm() {
         expenseAccount: line.expenseAccount,
       })
     }
-    const result = savePurchaseOrder({
+    const result = await savePurchaseOrder({
       supplierId,
       orderDate,
       lines: parsed,
@@ -91,7 +91,7 @@ export function OrderForm() {
   }
 
   return (
-    <form className="panel booking-form" onSubmit={handleSubmit}>
+    <form className="panel booking-form" onSubmit={(event) => void handleSubmit(event)}>
       <div className="panel-header">
         <h2 className="panel-title">Neue Bestellung</h2>
         <span className="panel-badge">ohne Buchung</span>

@@ -38,7 +38,7 @@ export function VendorInvoiceForm() {
   const [lines, setLines] = useState<LineDraft[]>([emptyLine()])
   const [error, setError] = useState<string | null>(null)
 
-  function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     setError(null)
     const parsed: VendorInvoiceLine[] = []
@@ -58,7 +58,7 @@ export function VendorInvoiceForm() {
         expenseAccount: line.expenseAccount,
       })
     }
-    const result = saveVendorInvoice({
+    const result = await saveVendorInvoice({
       supplierId,
       externalNumber,
       issueDate,
@@ -74,7 +74,7 @@ export function VendorInvoiceForm() {
   }
 
   return (
-    <form className="panel booking-form" onSubmit={handleSubmit}>
+    <form className="panel booking-form" onSubmit={(event) => void handleSubmit(event)}>
       <div className="panel-header">
         <h2 className="panel-title">Eingangsrechnung erfassen</h2>
         <span className="panel-badge">Entwurf · ohne Buchung</span>

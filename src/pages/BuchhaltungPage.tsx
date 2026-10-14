@@ -1,4 +1,5 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Navigate, Outlet } from 'react-router-dom'
+import { useAccounting } from '../accounting/AccountingContext'
 import { AccountingOverview } from '../components/buchhaltung/AccountingOverview'
 import { ChartOfAccountsPanel } from '../components/buchhaltung/ChartOfAccountsPanel'
 import { JournalEntryForm } from '../components/buchhaltung/JournalEntryForm'
@@ -32,6 +33,10 @@ export function ChartOfAccountsPage() {
 }
 
 export function NewEntryPage() {
+  const { capabilities } = useAccounting()
+  if (!capabilities.manualJournal) {
+    return <Navigate to="/buchhaltung" replace />
+  }
   return (
     <div className="page-stack">
       <DemoBanner />

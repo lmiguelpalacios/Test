@@ -49,7 +49,9 @@ export function AccountingOverview() {
       <DemoBanner
         detail={
           persistWarning ??
-          `Journal ${persistLabel} · Änderungen werden lokal im Browser gespeichert.`
+          (isLocalDemoMode
+            ? `Journal ${persistLabel} · Änderungen werden lokal im Browser gespeichert.`
+            : `Journal ${persistLabel} · Buchungen/Zahlungen nur über freigeschaltete RPCs (kein manueller Journal-Editor).`)
         }
       />
       <PageHeader
@@ -57,18 +59,22 @@ export function AccountingOverview() {
         subtitle={`${periodLabel} · gemeinsame Journal-Datenquelle`}
         actions={
           <div className="page-actions-row">
-            <Link to="/buchhaltung/neu" className="btn btn-primary">
-              <Plus size={16} aria-hidden />
-              Neue Buchung
-            </Link>
+            {capabilities.manualJournal ? (
+              <Link to="/buchhaltung/neu" className="btn btn-primary">
+                <Plus size={16} aria-hidden />
+                Neue Buchung
+              </Link>
+            ) : null}
             <Link to="/buchhaltung/kontenplan" className="btn btn-secondary">
               <BookMarked size={16} aria-hidden />
               Kontenplan
             </Link>
-            <button type="button" className="btn btn-secondary" onClick={handleReset}>
-              <RotateCcw size={16} aria-hidden />
-              Demo zurücksetzen
-            </button>
+            {capabilities.resetDemo ? (
+              <button type="button" className="btn btn-secondary" onClick={handleReset}>
+                <RotateCcw size={16} aria-hidden />
+                Demo zurücksetzen
+              </button>
+            ) : null}
           </div>
         }
       />

@@ -108,7 +108,7 @@ interface AccountingContextValue {
       SalesInvoice,
       'id' | 'number' | 'journalEntryIds' | 'createdAt' | 'updatedAt' | 'bookedAt'
     > & { id?: string; number?: string },
-  ) => ActionResult & { invoice?: SalesInvoice }
+  ) => Promise<ActionResult & { invoice?: SalesInvoice }>
   bookInvoice: (invoiceId: string) => Promise<ActionResult>
   recordInvoicePayment: (
     invoiceId: string,
@@ -125,8 +125,8 @@ interface AccountingContextValue {
       id?: string
       number?: string
     },
-  ) => ActionResult & { order?: PurchaseOrder }
-  confirmPurchaseOrder: (orderId: string) => ActionResult
+  ) => Promise<ActionResult & { order?: PurchaseOrder }>
+  confirmPurchaseOrder: (orderId: string) => Promise<ActionResult>
   recordGoodsReceipt: (
     orderId: string,
     input: { receiptDate: string; lines: GoodsReceiptLine[] },
@@ -136,7 +136,7 @@ interface AccountingContextValue {
       VendorInvoice,
       'id' | 'internalNumber' | 'journalEntryIds' | 'createdAt' | 'updatedAt' | 'bookedAt'
     > & { id?: string; internalNumber?: string },
-  ) => ActionResult & { invoice?: VendorInvoice }
+  ) => Promise<ActionResult & { invoice?: VendorInvoice }>
   bookVendorInvoice: (invoiceId: string) => Promise<ActionResult>
   recordVendorPayment: (
     invoiceId: string,
@@ -152,9 +152,9 @@ interface AccountingContextValue {
   submitLearningAnswer: (
     taskId: string,
     answer: LearningAnswer,
-  ) => ActionResult & { evaluation?: EvaluationResult }
+  ) => Promise<ActionResult & { evaluation?: EvaluationResult }>
   /** Markiert Aufgabe abgeschlossen (nach Bewertung). */
-  completeLearningTask: (taskId: string) => ActionResult
+  completeLearningTask: (taskId: string) => Promise<ActionResult>
   /**
    * Übernimmt Musterlösung ins echte Journal — nur nach Nutzerbestätigung in der UI
    * und nur wenn die Aufgabe abgeschlossen ist.
@@ -290,6 +290,12 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
     try {
       const snapshot = await repository.load()
       applySnapshot(snapshot)
+    } catch (error) {
+      setPersistWarning(
+        error instanceof Error
+          ? `Supabase-Laden fehlgeschlagen: ${error.message}`
+          : 'Supabase-Laden fehlgeschlagen.',
+      )
     } finally {
       setBackendBusy(false)
     }
@@ -357,15 +363,33 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
     )
   }, [capabilities.resetDemo])
 
+  const persistLearningState = useCallback(
+    async (next: LearningState): Promise<ActionResult> => {
+      if (isLocal || !capabilities.learningProgress) {
+        setPersistSource(isLocal ? 'storage' : 'supabase')
+        return { ok: true }
+      }
+      if (!repository?.saveLearningState) {
+        return { ok: false, message: 'Lernfortschritt kann online nicht gespeichert werden.' }
+      }
+      const result = await repository.saveLearningState(next)
+      if (result.ok) setPersistSource('supabase')
+      else setPersistWarning(result.message)
+      return result
+    },
+    [isLocal, capabilities.learningProgress, repository],
+  )
+
   const submitLearningAnswer = useCallback(
-    (
+    async (
       taskId: string,
       answer: LearningAnswer,
-    ): ActionResult & { evaluation?: EvaluationResult } => {
+    ): Promise<ActionResult & { evaluation?: EvaluationResult }> => {
       const task = getLearningTaskById(taskId)
       if (!task) return { ok: false, message: 'Lernaufgabe nicht gefunden.' }
       const evaluation = evaluateLearningAnswer(task, answer)
       const now = new Date().toISOString()
+      let nextState: LearningState | undefined
       setLearning((prev) => {
         const existing = prev.progress.find((item) => item.taskId === taskId)
         const nextItem: TaskProgress = {
@@ -384,37 +408,48 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
               item.taskId === taskId ? nextItem : item,
             )
           : [...prev.progress, nextItem]
-        return {
+        nextState = {
           progress,
           lastTaskId: taskId,
           totalPoints: computeLearningTotalPoints(progress),
         }
+        return nextState
       })
-      setPersistSource('storage')
+      if (!nextState) return { ok: false, message: 'Lernfortschritt konnte nicht berechnet werden.' }
+      const persist = await persistLearningState(nextState)
+      if (!persist.ok) return persist
       return { ok: true, evaluation }
     },
-    [],
+    [persistLearningState],
   )
 
-  const completeLearningTask = useCallback((taskId: string): ActionResult => {
-    const task = getLearningTaskById(taskId)
-    if (!task) return { ok: false, message: 'Lernaufgabe nicht gefunden.' }
-    setLearning((prev) => {
-      const existing = prev.progress.find((item) => item.taskId === taskId)
-      if (!existing) return prev
-      const progress = prev.progress.map((item) =>
-        item.taskId === taskId ? { ...item, completed: true } : item,
-      )
-      return {
-        ...prev,
-        progress,
-        lastTaskId: taskId,
-        totalPoints: computeLearningTotalPoints(progress),
-      }
-    })
-    setPersistSource('storage')
-    return { ok: true }
-  }, [])
+  const completeLearningTask = useCallback(
+    async (taskId: string): Promise<ActionResult> => {
+      const task = getLearningTaskById(taskId)
+      if (!task) return { ok: false, message: 'Lernaufgabe nicht gefunden.' }
+      let nextState: LearningState | undefined
+      setLearning((prev) => {
+        const existing = prev.progress.find((item) => item.taskId === taskId)
+        if (!existing) {
+          nextState = prev
+          return prev
+        }
+        const progress = prev.progress.map((item) =>
+          item.taskId === taskId ? { ...item, completed: true } : item,
+        )
+        nextState = {
+          ...prev,
+          progress,
+          lastTaskId: taskId,
+          totalPoints: computeLearningTotalPoints(progress),
+        }
+        return nextState
+      })
+      if (!nextState) return { ok: false, message: 'Aufgabe nicht gefunden.' }
+      return persistLearningState(nextState)
+    },
+    [persistLearningState],
+  )
 
   const postLearningPracticeEntry = useCallback(
     (taskId: string): ActionResult => {
@@ -544,12 +579,12 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
   )
 
   const saveDraftInvoice = useCallback(
-    (
+    async (
       input: Omit<
         SalesInvoice,
         'id' | 'number' | 'journalEntryIds' | 'createdAt' | 'updatedAt' | 'bookedAt'
       > & { id?: string; number?: string },
-    ): ActionResult & { invoice?: SalesInvoice } => {
+    ): Promise<ActionResult & { invoice?: SalesInvoice }> => {
       if (input.lines.length === 0) {
         return { ok: false, message: 'Mindestens eine Position ist erforderlich.' }
       }
@@ -575,7 +610,9 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
           return prev
         }
         const invoice: SalesInvoice = {
-          id: existing?.id ?? createId('inv'),
+          id:
+            existing?.id ??
+            (isLocal ? createId('inv') : ensureUuid(input.id)),
           number:
             existing?.number ??
             input.number ??
@@ -583,7 +620,10 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
           issueDate: input.issueDate,
           dueDate: input.dueDate,
           customerId: input.customerId,
-          lines: input.lines.map((line) => ({ ...line })),
+          lines: input.lines.map((line) => ({
+            ...line,
+            id: isLocal ? line.id : ensureUuid(line.id),
+          })),
           journalEntryIds: [],
           createdAt: existing?.createdAt ?? now,
           updatedAt: now,
@@ -607,10 +647,30 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
             'Rechnung konnte nicht gespeichert werden (ungültiger Kunde oder bereits gebucht).',
         }
       }
+
+      if (!isLocal) {
+        if (!repository?.saveDraftInvoice) {
+          return {
+            ok: false,
+            message: 'Entwurf speichern ist online nicht verfügbar.',
+          }
+        }
+        setBackendBusy(true)
+        try {
+          const result = await repository.saveDraftInvoice(saved)
+          if (!result.ok) return result
+          await reloadFromBackend()
+          setPersistSource('supabase')
+          return result
+        } finally {
+          setBackendBusy(false)
+        }
+      }
+
       setPersistSource('storage')
       return { ok: true, invoice: saved }
     },
-    [],
+    [isLocal, repository, reloadFromBackend],
   )
 
   const bookInvoice = useCallback(
@@ -813,12 +873,12 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
   )
 
   const savePurchaseOrder = useCallback(
-    (
+    async (
       input: Omit<PurchaseOrder, 'id' | 'number' | 'createdAt' | 'updatedAt'> & {
         id?: string
         number?: string
       },
-    ): ActionResult & { order?: PurchaseOrder } => {
+    ): Promise<ActionResult & { order?: PurchaseOrder }> => {
       if (input.lines.length === 0) {
         return { ok: false, message: 'Mindestens eine Bestellposition ist erforderlich.' }
       }
@@ -838,14 +898,17 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
           return prev
         }
         const order: PurchaseOrder = {
-          id: existing?.id ?? createId('po'),
+          id: existing?.id ?? (isLocal ? createId('po') : ensureUuid(input.id)),
           number:
             existing?.number ??
             input.number ??
             formatPurchaseOrderNumber(prev.nextOrderSequence),
           supplierId: input.supplierId,
           orderDate: input.orderDate,
-          lines: input.lines.map((line) => ({ ...line })),
+          lines: input.lines.map((line) => ({
+            ...line,
+            id: isLocal ? line.id : ensureUuid(line.id),
+          })),
           confirmedAt: existing?.confirmedAt,
           createdAt: existing?.createdAt ?? now,
           updatedAt: now,
@@ -867,32 +930,71 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
           message: 'Bestellung konnte nicht gespeichert werden.',
         }
       }
+
+      if (!isLocal) {
+        if (!repository?.savePurchaseOrder) {
+          return { ok: false, message: 'Bestellung speichern ist online nicht verfügbar.' }
+        }
+        setBackendBusy(true)
+        try {
+          const result = await repository.savePurchaseOrder(saved)
+          if (!result.ok) return result
+          await reloadFromBackend()
+          setPersistSource('supabase')
+          return result
+        } finally {
+          setBackendBusy(false)
+        }
+      }
+
       setPersistSource('storage')
       return { ok: true, order: saved }
     },
-    [],
+    [isLocal, repository, reloadFromBackend],
   )
 
-  const confirmPurchaseOrder = useCallback((orderId: string): ActionResult => {
-    let ok = false
-    setPurchase((prev) => {
-      const order = prev.orders.find((item) => item.id === orderId)
-      if (!order || order.confirmedAt) return prev
-      ok = true
-      const confirmedAt = new Date().toISOString()
-      return {
-        ...prev,
-        orders: prev.orders.map((item) =>
-          item.id === orderId
-            ? { ...item, confirmedAt, updatedAt: confirmedAt }
-            : item,
-        ),
+  const confirmPurchaseOrder = useCallback(
+    async (orderId: string): Promise<ActionResult> => {
+      if (!isLocal) {
+        if (!repository?.confirmPurchaseOrder) {
+          return { ok: false, message: 'Bestätigung ist online nicht verfügbar.' }
+        }
+        setBackendBusy(true)
+        try {
+          const result = await repository.confirmPurchaseOrder(orderId)
+          if (result.ok) {
+            await reloadFromBackend()
+            setPersistSource('supabase')
+          }
+          return result
+        } finally {
+          setBackendBusy(false)
+        }
       }
-    })
-    if (!ok) return { ok: false, message: 'Bestellung nicht gefunden oder bereits bestätigt.' }
-    setPersistSource('storage')
-    return { ok: true }
-  }, [])
+
+      let ok = false
+      setPurchase((prev) => {
+        const order = prev.orders.find((item) => item.id === orderId)
+        if (!order || order.confirmedAt) return prev
+        ok = true
+        const confirmedAt = new Date().toISOString()
+        return {
+          ...prev,
+          orders: prev.orders.map((item) =>
+            item.id === orderId
+              ? { ...item, confirmedAt, updatedAt: confirmedAt }
+              : item,
+          ),
+        }
+      })
+      if (!ok) {
+        return { ok: false, message: 'Bestellung nicht gefunden oder bereits bestätigt.' }
+      }
+      setPersistSource('storage')
+      return { ok: true }
+    },
+    [isLocal, repository, reloadFromBackend],
+  )
 
   const recordGoodsReceipt = useCallback(
     async (
@@ -986,12 +1088,12 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
   )
 
   const saveVendorInvoice = useCallback(
-    (
+    async (
       input: Omit<
         VendorInvoice,
         'id' | 'internalNumber' | 'journalEntryIds' | 'createdAt' | 'updatedAt' | 'bookedAt'
       > & { id?: string; internalNumber?: string },
-    ): ActionResult & { invoice?: VendorInvoice } => {
+    ): Promise<ActionResult & { invoice?: VendorInvoice }> => {
       if (input.lines.length === 0) {
         return { ok: false, message: 'Mindestens eine Position ist erforderlich.' }
       }
@@ -1011,7 +1113,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
           return prev
         }
         const invoice: VendorInvoice = {
-          id: existing?.id ?? createId('vinv'),
+          id: existing?.id ?? (isLocal ? createId('vinv') : ensureUuid(input.id)),
           externalNumber: input.externalNumber.trim(),
           internalNumber:
             existing?.internalNumber ??
@@ -1020,7 +1122,10 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
           supplierId: input.supplierId,
           issueDate: input.issueDate,
           dueDate: input.dueDate,
-          lines: input.lines.map((line) => ({ ...line })),
+          lines: input.lines.map((line) => ({
+            ...line,
+            id: isLocal ? line.id : ensureUuid(line.id),
+          })),
           orderId: input.orderId,
           journalEntryIds: [],
           createdAt: existing?.createdAt ?? now,
@@ -1045,10 +1150,30 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
           message: 'Eingangsrechnung konnte nicht gespeichert werden.',
         }
       }
+
+      if (!isLocal) {
+        if (!repository?.saveVendorInvoice) {
+          return {
+            ok: false,
+            message: 'Eingangsrechnung speichern ist online nicht verfügbar.',
+          }
+        }
+        setBackendBusy(true)
+        try {
+          const result = await repository.saveVendorInvoice(saved)
+          if (!result.ok) return result
+          await reloadFromBackend()
+          setPersistSource('supabase')
+          return result
+        } finally {
+          setBackendBusy(false)
+        }
+      }
+
       setPersistSource('storage')
       return { ok: true, invoice: saved }
     },
-    [],
+    [isLocal, repository, reloadFromBackend],
   )
 
   const bookVendorInvoice = useCallback(

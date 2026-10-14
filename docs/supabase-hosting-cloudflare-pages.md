@@ -1,7 +1,22 @@
-# Hosting prep — Cloudflare Pages (no deploy in this phase)
+# Hosting — Cloudflare Pages (Preview/Test deployed)
 
 **Stand:** 2026-10-14  
-**Scope:** Build/env/runbook documentation only. **Do not** create new production Cloudflare/Supabase resources from this doc alone.
+**Scope:** Vite SPA on Cloudflare Pages. Preview/Test points at **review** Supabase — never claim Production/handels until freigabe.
+
+---
+
+## Live Preview/Test
+
+| Setting | Value |
+|---------|--------|
+| Project | `nordlicht-preview` |
+| URL | https://nordlicht-preview.pages.dev |
+| Also | https://preview.nordlicht-preview.pages.dev |
+| Backend | `tbxdoapspjhabcsxgllx` (nordlicht-security-review) URL + **anon** |
+| Domain | `*.pages.dev` only (no custom DNS) |
+| Tier | Free / standard — no paid addons |
+
+See `docs/nordlicht-release-readiness.md` for verification evidence.
 
 ---
 
@@ -13,30 +28,23 @@
 | Build command | `npm run build` |
 | Output directory | `dist` |
 | Node | 20+ recommended |
-| SPA | Yes — all routes → `index.html` |
+| SPA | Yes — `public/_redirects`: `/*    /index.html   200` |
 
-### SPA redirects (`public/_redirects` or Pages rule)
-
-```
-/*    /index.html   200
-```
-
-Already sufficient if using Cloudflare Pages “SPA” checkbox / `functions` not required for static Vite.
+Vite inlines `VITE_*` at **build** time. For direct upload, build with review env locally; for Git builds, set the same vars in Pages project env (already configured on `nordlicht-preview`).
 
 ---
 
-## Environment variables (Pages → Settings → Environment variables)
+## Environment variables (Pages)
 
 | Name | Required | Notes |
 |------|----------|--------|
-| `VITE_SUPABASE_URL` | for online mode | Project URL (`https://<ref>.supabase.co`) |
-| `VITE_SUPABASE_ANON_KEY` | for online mode | **anon / publishable** key only |
-| `VITE_DATA_BACKEND` | optional | `local` forces demo; `supabase` requires URL+anon |
+| `VITE_SUPABASE_URL` | for online mode | Review: `https://tbxdoapspjhabcsxgllx.supabase.co` |
+| `VITE_SUPABASE_ANON_KEY` | for online mode | **anon / publishable** only |
+| `VITE_DATA_BACKEND` | optional | `supabase` for Preview; `local` forces demo |
+| `VITE_APP_LABEL` | optional | `Preview/Test — Review Backend` |
 
-**Never** set `service_role` in Pages or any frontend env.  
-Missing/invalid URL+anon → app stays in **local demo mode** (Workspace v4 localStorage).
-
-Preview vs Production: use the **review** Supabase project for Preview; do **not** point production at `nordlicht-handels` until explicitly approved.
+**Never** set `service_role`.  
+Do **not** point this Preview project at `nordlicht-handels` until migrations + explicit freigabe.
 
 ---
 
@@ -56,13 +64,13 @@ npm run build && npm run preview
 | Env | Behavior |
 |-----|----------|
 | No `VITE_SUPABASE_*` | Local demo; full Workspace v4; no AuthGate |
-| Valid URL + anon | Supabase mode; AuthGate → org → RPC/table adapter |
+| Valid URL + anon | Supabase / Preview mode; AuthGate → org → RPC/table adapter |
 | `VITE_DATA_BACKEND=local` with keys present | Force local demo (no hybrid writes) |
 
 ---
 
-## What this phase does **not** do
+## Deploy notes
 
-- No Cloudflare Pages project creation / deploy requiring new external resources
-- No handels (`kicwytgtrdadrhhlfrnn`) or TrueFuel (`ipblsxncnwyizdxudtrc`) changes
-- No service_role in git or browser
+- This pass: **direct upload** of `dist` after `npm run build` with review env.
+- GitHub continuous builds preferred once CF↔GitHub is connected on this account.
+- No foreign sites/domains modified.

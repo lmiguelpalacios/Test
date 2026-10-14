@@ -1,6 +1,7 @@
 import { Bell, Menu, Search } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import { useOrg } from '../auth/OrgContext'
 import { ModeBadge } from '../components/ModeBadge'
 import { companyInfo } from '../data/demo-data'
 import { navItems } from './nav'
@@ -12,6 +13,7 @@ interface TopbarProps {
 export function Topbar({ onMenuClick }: TopbarProps) {
   const location = useLocation()
   const { user, mode } = useAuth()
+  const { activeMembership } = useOrg()
   const current =
     navItems.find((item) =>
       item.path === '/'
@@ -20,7 +22,13 @@ export function Topbar({ onMenuClick }: TopbarProps) {
     ) ?? navItems[0]
 
   const displayName = user?.email?.split('@')[0] ?? 'Lernende/r'
-  const roleLabel = mode === 'local' ? 'Demo-Zugang' : 'Supabase'
+  const roleLabel =
+    mode === 'local'
+      ? 'Demo-Zugang'
+      : activeMembership?.role
+        ? `${activeMembership.role} · Preview`
+        : 'Preview / Test'
+  const avatarLabel = (displayName.slice(0, 2) || 'NL').toUpperCase()
 
   return (
     <header className="topbar">
@@ -61,7 +69,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
         </button>
         <div className="user-chip" title={user?.email ?? 'Lokaler Demo-Zugang'}>
           <span className="user-avatar" aria-hidden>
-            NL
+            {avatarLabel}
           </span>
           <span className="user-meta">
             <span className="user-name">{displayName}</span>

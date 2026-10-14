@@ -20,7 +20,7 @@ const STATUS_FILTERS: Array<{ id: 'alle' | InvoiceStatus; label: string }> = [
 ]
 
 export function SalesOverview() {
-  const { sales, persistWarning } = useAccounting()
+  const { sales, persistWarning, isLocalDemoMode } = useAccounting()
   const [statusFilter, setStatusFilter] = useState<'alle' | InvoiceStatus>('alle')
   const [query, setQuery] = useState('')
 
@@ -50,12 +50,18 @@ export function SalesOverview() {
       <DemoBanner
         detail={
           persistWarning ??
-          'Verkauf erzeugt Buchungen nur über das zentrale Journal (localStorage).'
+          (isLocalDemoMode
+            ? 'Verkauf erzeugt Buchungen nur über das zentrale Journal (localStorage).'
+            : 'Verkauf bucht und zahlt über Supabase-RPCs (book_sales_invoice / record_sales_payment). Preview/Test — nicht Production.')
         }
       />
       <PageHeader
         title="Verkauf"
-        subtitle="Kundenrechnungen · lokale Lernsimulation"
+        subtitle={
+          isLocalDemoMode
+            ? 'Kundenrechnungen · lokale Lernsimulation'
+            : 'Kundenrechnungen · Online-Preview (Review-Backend)'
+        }
         actions={
           <div className="page-actions-row">
             <Link to="/verkauf/neu" className="btn btn-primary">

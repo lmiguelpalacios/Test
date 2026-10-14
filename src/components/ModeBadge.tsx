@@ -17,8 +17,11 @@ export function ModeBadge({ compact = false }: { compact?: boolean }) {
 
   if (awaitingRemoteSession || !user) {
     return (
-      <span className="mode-chip mode-chip-warn" title="Supabase konfiguriert — Anmeldung nötig">
-        {compact ? 'Online…' : 'Supabase — Anmeldung erforderlich'}
+      <span
+        className="mode-chip mode-chip-warn"
+        title="Preview/Test — Review-Backend; Anmeldung nötig (nicht Production)"
+      >
+        {compact ? 'Preview…' : 'Preview/Test — Anmeldung erforderlich'}
       </span>
     )
   }
@@ -28,13 +31,13 @@ export function ModeBadge({ compact = false }: { compact?: boolean }) {
       className="mode-chip mode-chip-online"
       title={
         activeMembership
-          ? `${activeMembership.organizationName} (${activeMembership.role})`
-          : 'Supabase-Modus'
+          ? `Preview/Test · ${activeMembership.organizationName} (${activeMembership.role}) — Review-Backend, nicht handels`
+          : 'Preview/Test — Review-Backend (nicht Production)'
       }
     >
       {compact
-        ? 'Online'
-        : `Supabase · ${activeMembership?.organizationName ?? 'Organisation'}`}
+        ? 'Preview'
+        : `Preview/Test · ${activeMembership?.organizationName ?? 'Organisation'}`}
     </span>
   )
 }

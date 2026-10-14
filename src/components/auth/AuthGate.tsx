@@ -47,11 +47,13 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     return (
       <div className="auth-gate">
         <div className="auth-card">
-          <h1>Supabase-Anmeldung</h1>
+          <h1>Nordlicht Preview / Test</h1>
           <p className="auth-lead">
-            Online-Modus ist aktiv (URL + Anon-Key gesetzt). Es gibt keinen stillen
-            Hybrid mit localStorage — bitte anmelden oder Env entfernen für den
-            lokalen Demo-Modus.
+            Online-Modus (Preview) ist aktiv — Backend ist die{' '}
+            <strong>Security-Review</strong>-Umgebung, nicht Production. Kein stiller
+            Hybrid mit localStorage. Schüler:innen: Konto anlegen, dann von der Lehrkraft
+            in die Klassen-Organisation einladen lassen (oder selbst eine Übungs-Org
+            anlegen).
           </p>
           <form className="auth-form" onSubmit={(event) => void onSubmit(event, 'in')}>
             <label>
@@ -118,8 +120,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         <div className="auth-card">
           <h1>Organisation wählen</h1>
           <p className="auth-lead">
-            Angemeldet als {user.email}. Keine Mitgliedschaft gefunden — lege eine
-            Übungsorganisation an (Owner).
+            Angemeldet als {user.email}. Noch keine Mitgliedschaft — für den
+            Klassen-Unterricht braucht ihr eine Einladung der Lehrkraft in die gemeinsame
+            Org. Alternativ: eigene Übungsorganisation als Owner anlegen (private Demo).
           </p>
           {memberships.length > 0 ? (
             <ul className="org-list">

@@ -53,12 +53,13 @@ export function OrderDetail() {
 
   const handleConfirm = () => {
     setError(null)
-    const result = confirmPurchaseOrder(order.id)
-    if (!result.ok) {
-      setError(result.message)
-      return
-    }
-    setMessage('Bestellung bestätigt (ohne Journalbuchung).')
+    void confirmPurchaseOrder(order.id).then((result) => {
+      if (!result.ok) {
+        setError(result.message)
+        return
+      }
+      setMessage('Bestellung bestätigt (ohne Journalbuchung).')
+    })
   }
 
   const handleReceipt = (event: FormEvent) => {

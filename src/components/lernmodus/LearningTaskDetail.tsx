@@ -21,6 +21,7 @@ export function LearningTaskDetail() {
     submitLearningAnswer,
     completeLearningTask,
     postLearningPracticeEntry,
+    capabilities,
   } = useAccounting()
   const task = taskId ? getLearningTaskById(taskId) : undefined
   const progress = learning.progress.find((item) => item.taskId === taskId)
@@ -64,30 +65,32 @@ export function LearningTaskDetail() {
       setError('USt-Satz ungültig.')
       return
     }
-    const result = submitLearningAnswer(task.id, {
+    void submitLearningAnswer(task.id, {
       debitAccount,
       creditAccount,
       netAmountCents,
       vatRate,
+    }).then((result) => {
+      if (!result.ok || !result.evaluation) {
+        setError(result.ok ? 'Bewertung fehlgeschlagen.' : result.message)
+        return
+      }
+      setEvaluation(result.evaluation)
+      if (result.evaluation.fullyCorrect) {
+        setShowSolution(true)
+        setMessage('Aufgabe vollständig gelöst und als abgeschlossen gespeichert.')
+      }
     })
-    if (!result.ok || !result.evaluation) {
-      setError(result.ok ? 'Bewertung fehlgeschlagen.' : result.message)
-      return
-    }
-    setEvaluation(result.evaluation)
-    if (result.evaluation.fullyCorrect) {
-      setShowSolution(true)
-      setMessage('Aufgabe vollständig gelöst und als abgeschlossen gespeichert.')
-    }
   }
 
   const handleComplete = () => {
-    const result = completeLearningTask(task.id)
-    if (!result.ok) {
-      setError(result.message)
-      return
-    }
-    setMessage('Aufgabe manuell als abgeschlossen markiert.')
+    void completeLearningTask(task.id).then((result) => {
+      if (!result.ok) {
+        setError(result.message)
+        return
+      }
+      setMessage('Aufgabe manuell als abgeschlossen markiert.')
+    })
   }
 
   const handlePracticePost = () => {
@@ -258,7 +261,7 @@ export function LearningTaskDetail() {
             {task.effects.result ? <li>Ergebnis: {task.effects.result}</li> : null}
           </ul>
 
-          {task.allowPracticeJournalPost ? (
+          {task.allowPracticeJournalPost && capabilities.learningPracticeJournal ? (
             <div className="page-actions-row">
               <button
                 type="button"
@@ -272,6 +275,13 @@ export function LearningTaskDetail() {
                 Zum Journal
               </Link>
             </div>
+          ) : null}
+          {task.allowPracticeJournalPost && !capabilities.learningPracticeJournal ? (
+            <p className="form-hint">
+              Übungsbuchung ins Journal ist im Online-/Preview-Modus für v1 deaktiviert
+              (RPC <code>post_learning_practice</code> noch Stub). Bewertung und
+              Lernfortschritt funktionieren weiterhin.
+            </p>
           ) : null}
         </section>
       )}

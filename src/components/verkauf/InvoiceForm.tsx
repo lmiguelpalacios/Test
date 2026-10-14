@@ -80,14 +80,14 @@ export function InvoiceForm() {
     )
   }
 
-  function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     setError(null)
     if (previewLines.length === 0) {
       setError('Bitte mindestens eine gültige Position erfassen.')
       return
     }
-    const result = saveDraftInvoice({
+    const result = await saveDraftInvoice({
       customerId,
       issueDate,
       dueDate,
@@ -105,7 +105,7 @@ export function InvoiceForm() {
   }
 
   return (
-    <form className="panel booking-form" onSubmit={handleSubmit}>
+    <form className="panel booking-form" onSubmit={(event) => void handleSubmit(event)}>
       <div className="panel-header">
         <h2 className="panel-title">Neue Ausgangsrechnung</h2>
         <span className="panel-badge">Entwurf · ohne Buchung</span>
