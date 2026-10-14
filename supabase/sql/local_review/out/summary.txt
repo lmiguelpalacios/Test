@@ -2,6 +2,8 @@ OK: 01_bootstrap
 OK: 02_schema
 OK: 03_rls
 OK: 04_grants
-OK: 05_rpc_stubs
-OK: 06_security_checks (see stdout; some queries informational)
+OK: 05_booking_rpcs
+OK: 05b_remaining_stubs
+OK: 06_security_checks (see stdout; Expect-0 queries should be empty)
 OK: 07_negative_tests
+OK: 08_booking_rpc_tests

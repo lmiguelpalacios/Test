@@ -187,11 +187,24 @@ begin
   reset role;
   perform public.review_expect('RLS_CROSS_ORG_SELECT', n = 0, format('student-a saw %s org_b customers', n));
 
-  -- -------- anon sees nothing --------
+  -- -------- anon sees nothing (Phase-1: no table GRANT → permission denied, or RLS 0) --------
   set role anon;
-  select count(*) into n from public.customers;
+  raised := false;
+  n := -1;
+  begin
+    select count(*) into n from public.customers;
+  exception when insufficient_privilege then
+    raised := true;
+    n := -1;
+  when others then
+    raised := (sqlerrm ilike '%permission%' or sqlerrm ilike '%denied%');
+  end;
   reset role;
-  perform public.review_expect('ANON_NO_CUSTOMERS', n = 0, format('anon count=%s', n));
+  perform public.review_expect(
+    'ANON_NO_CUSTOMERS',
+    raised or n = 0,
+    format('raised=%s count=%s', raised, n)
+  );
 
   -- -------- A4: booked lines immutable --------
   perform set_config('request.jwt.claim.sub', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa3', false);
@@ -298,35 +311,62 @@ begin
 
 end $$;
 
--- Unbalanced journal in its own transaction so deferred constraint can fire
+-- Unbalanced journal: after Phase-2 revoke, authenticated cannot INSERT journal.
+-- Exercise the deferred balance trigger as table owner/superuser instead.
 \set ON_ERROR_STOP 0
 do $$
 declare
   org_a uuid;
   entry_id uuid;
+  raised boolean := false;
+  n int;
 begin
   select id into org_a from public.organizations where slug = 'org-a';
+
+  -- Authenticated must not be able to insert journal rows directly
   perform set_config('request.jwt.claim.sub', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa3', false);
   set role authenticated;
-  insert into public.journal_entries (
-    organization_id, entry_date, document_number, description,
-    debit_account, credit_account, net_amount_cents, vat_rate,
-    tax_amount_cents, gross_amount_cents
-  ) values (
-    org_a, current_date, 'J-UNBAL', 'unbalanced',
-    '4920', '1000', 100, 0, 0, 100
-  ) returning id into entry_id;
-
-  insert into public.journal_lines (
-    organization_id, journal_entry_id, account_number, debit_cents, credit_cents
-  ) values (org_a, entry_id, '4920', 100, 0);
-
-  set constraints all immediate;
+  begin
+    insert into public.journal_entries (
+      organization_id, entry_date, document_number, description,
+      debit_account, credit_account, net_amount_cents, vat_rate,
+      tax_amount_cents, gross_amount_cents
+    ) values (
+      org_a, current_date, 'J-DENIED', 'no direct write',
+      '4920', '1000', 100, 0, 0, 100
+    );
+  exception when insufficient_privilege then
+    raised := true;
+  when others then
+    raised := (sqlerrm ilike '%permission%' or sqlerrm ilike '%denied%');
+  end;
   reset role;
-  perform public.review_expect('JOURNAL_BALANCE', false, 'expected deferred balance failure');
-exception when others then
-  reset role;
-  perform public.review_expect('JOURNAL_BALANCE', true, sqlerrm);
+  perform public.review_expect(
+    'JOURNAL_NO_DIRECT_INSERT',
+    raised,
+    'authenticated journal insert blocked by GRANT revoke'
+  );
+
+  -- Deferred balance still enforced for DEFINER/owner path
+  begin
+    insert into public.journal_entries (
+      organization_id, entry_date, document_number, description,
+      debit_account, credit_account, net_amount_cents, vat_rate,
+      tax_amount_cents, gross_amount_cents
+    ) values (
+      org_a, current_date, 'J-UNBAL', 'unbalanced',
+      '4920', '1000', 100, 0, 0, 100
+    ) returning id into entry_id;
+
+    insert into public.journal_lines (
+      organization_id, journal_entry_id, account_number, debit_cents, credit_cents
+    ) values (org_a, entry_id, '4920', 100, 0);
+
+    set constraints all immediate;
+    perform public.review_expect('JOURNAL_BALANCE', false, 'expected deferred balance failure');
+  exception when others then
+    perform public.review_expect('JOURNAL_BALANCE', true, sqlerrm);
+  end;
 end $$;
 \set ON_ERROR_STOP 1
 

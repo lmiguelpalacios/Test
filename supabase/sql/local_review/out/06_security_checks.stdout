@@ -18,3 +18,15 @@
 ---------+---------
 (0 rows)
 
+ table_schema | table_name | privilege_type | grantee 
+--------------+------------+----------------+---------
+(0 rows)
+
+ object_schema | object_name | privilege_type | grantee 
+---------------+-------------+----------------+---------
+(0 rows)
+
+ table_name | privilege_type 
+------------+----------------
+(0 rows)
+

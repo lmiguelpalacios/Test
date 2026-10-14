@@ -1,0 +1,1 @@
+psql:/workspace/supabase/sql/local_review/20_booking_rpc_tests.sql:5: NOTICE:  table "booking_rpc_results" does not exist, skipping

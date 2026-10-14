@@ -12,9 +12,12 @@
 |------|--------|
 | `migrations/20261012120000_nordlicht_schema_v1.sql` | Schema, composite FKs, Triggers, Seeds, `create_organization` / `seed_organization_accounts` |
 | `migrations/20261012120100_nordlicht_rls_v1.sql` | Helpers + RLS (Teacher least privilege) |
-| `sql/rpc_booking_stubs.sql` | RPC-Stubs mit Authz (raise) — **keine** Migration |
+| `migrations/20261013140000_nordlicht_grants_v1.sql` | Least-privilege GRANTs (anon revoke; authenticated draft/master paths) |
+| `migrations/20261013140100_nordlicht_booking_rpcs_v1.sql` | Echte Booking-RPCs + Revoke direkter Journal/Payment-Writes |
+| `sql/rpc_booking_stubs.sql` | Rest-Stubs (goods/learning/import); Kern-RPCs in Migration |
 | `sql/security_checks.sql` | Prüfabfragen für isolierte Review-DB |
 | Store-Spiegel | `/cursor/stores/self/docs/supabase-schema-v1.md` |
+| Report | `docs/supabase-rpc-implementation-report.md` |
 
 **Migrations-Entscheidung:** In-place gehärtet, weil v1 **nie** auf nordlicht-handels / TrueFuel / Prod angewendet wurde.
 

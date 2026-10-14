@@ -125,7 +125,10 @@ where n.nspname = 'public'
 -- ===========================================================================
 -- 3) EXECUTE privileges on sensitive functions
 -- ===========================================================================
--- Expect: anon has no EXECUTE on create_organization / seed / booking stubs
+-- Expect: 0 rows — anon/public must not EXECUTE create/seed/booking/trigger fns
+-- Exceptions (documented, not listed here):
+--   * Supabase platform roles (authenticator, supabase_admin, …) are out of scope
+--   * Internal helpers _nl_* intentionally have no grants to anon/authenticated
 select p.proname, r.rolname
 from pg_proc p
 join pg_namespace n on n.oid = p.pronamespace
@@ -136,7 +139,66 @@ where n.nspname = 'public'
     'create_organization',
     'seed_organization_accounts',
     'book_sales_invoice',
-    'handle_new_user'
+    'book_vendor_invoice',
+    'record_sales_payment',
+    'record_vendor_payment',
+    'next_document_number',
+    'handle_new_user',
+    'assert_journal_entry_balanced',
+    'enforce_invoice_booking_immutability',
+    'enforce_sales_payment_rules',
+    'enforce_vendor_payment_rules',
+    'sales_invoice_gross_cents',
+    'vendor_invoice_gross_cents',
+    'can_write_org',
+    'is_org_member'
   )
   and r.rolname in ('anon', 'public')
   and acl.privilege_type = 'EXECUTE';
+
+-- ===========================================================================
+-- 4) Table privileges — anon must have none on public business tables
+-- ===========================================================================
+-- Expect: 0 rows
+-- Exceptions (documented):
+--   * FORCE RLS intentionally OFF on organizations, organization_members,
+--     account_templates, learning_tasks (create_organization DEFINER bootstrap).
+--   * This check is about GRANTs, not FORCE RLS.
+select table_schema, table_name, privilege_type, grantee
+from information_schema.role_table_grants
+where table_schema = 'public'
+  and grantee = 'anon'
+  and table_name in (
+    'profiles', 'organizations', 'organization_members', 'account_templates',
+    'accounts', 'customers', 'suppliers', 'products', 'sales_invoices',
+    'sales_invoice_lines', 'sales_payments', 'purchase_orders',
+    'purchase_order_lines', 'goods_receipts', 'goods_receipt_lines',
+    'vendor_invoices', 'vendor_invoice_lines', 'vendor_payments',
+    'stock_movements', 'journal_entries', 'journal_lines',
+    'document_journal_links', 'document_sequences', 'learning_tasks',
+    'learning_progress', 'import_batches'
+  );
+
+-- Expect: 0 rows — anon must not hold sequence privileges in public
+select object_schema, object_name, privilege_type, grantee
+from information_schema.usage_privileges
+where object_schema = 'public'
+  and grantee = 'anon'
+  and object_type = 'SEQUENCE';
+
+-- Expect: 0 rows — authenticated must NOT hold INSERT on journal/payment/stock
+-- after booking RPC migration (Phase 2 revoke). Before that migration these
+-- may still appear; run checks after full local_review apply path.
+select table_name, privilege_type
+from information_schema.role_table_grants
+where table_schema = 'public'
+  and grantee = 'authenticated'
+  and privilege_type in ('INSERT', 'UPDATE', 'DELETE')
+  and table_name in (
+    'journal_entries', 'journal_lines', 'document_journal_links',
+    'sales_payments', 'vendor_payments', 'stock_movements',
+    'document_sequences'
+  );
+
+-- Expect: 0 rows — authenticated must NOT hold DML on document_sequences
+-- (SELECT-only; covered above for INSERT/UPDATE/DELETE)

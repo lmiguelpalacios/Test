@@ -1,5 +1,5 @@
 case_id,ok,detail
-MIG_ORGS,t,org_a=2970a870-65fa-4643-9fa4-9be1ecd04ad7 org_b=7b485e59-a0e5-4d02-9cf3-7f19165160b9
+MIG_ORGS,t,org_a=de14d2a0-4576-4338-91f9-05eba4709c48 org_b=4207a223-ccc3-45dc-9248-82d16bb2e9ca
 SEED_ACCOUNTS,t,accounts=24
 A1_NO_BOOTSTRAP_ESCALATION,t,outsider owner insert blocked
 A2_SEED_OWNER_ONLY,t,student seed blocked
@@ -8,9 +8,10 @@ A5_TEACHER_CAN_ADD_STUDENT,t,teacher→student allowed
 TEACHER_NO_BOOKKEEPING_WRITE,t,teacher invoice insert blocked
 A3_CROSS_ORG_FK,t,org_a invoice + org_b customer rejected
 RLS_CROSS_ORG_SELECT,t,student-a saw 0 org_b customers
-ANON_NO_CUSTOMERS,t,anon count=0
+ANON_NO_CUSTOMERS,t,raised=t count=-1
 A4_BOOKED_LINES_IMMUTABLE,t,raised=f row_count=0
-SEQ_NO_CLIENT_UPDATE,t,raised=f row_count=0
+SEQ_NO_CLIENT_UPDATE,t,raised=t row_count=-1
 RPC_STUB_TEACHER_AUTHZ,t,teacher book stub denied or stub raise
 LEARNING_PEER_ISOLATION,t,owner-b saw 0 org_a progress rows
-JOURNAL_BALANCE,t,journal entry 689ff491-ffac-49ab-8cae-064bf784d203 unbalanced: debit=100 credit=0
+JOURNAL_NO_DIRECT_INSERT,t,authenticated journal insert blocked by GRANT revoke
+JOURNAL_BALANCE,t,journal entry 04d5661b-0341-4d7f-8b36-98836df593f4 unbalanced: debit=100 credit=0
