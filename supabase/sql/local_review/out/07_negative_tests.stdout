@@ -12,7 +12,7 @@ INSERT 0 0
 SET
          create_organization          
 --------------------------------------
- de14d2a0-4576-4338-91f9-05eba4709c48
+ b4766bd8-57cc-480b-bd0f-4aeaa96b2395
 (1 row)
 
 RESET
@@ -24,7 +24,7 @@ RESET
 SET
          create_organization          
 --------------------------------------
- 4207a223-ccc3-45dc-9248-82d16bb2e9ca
+ d6618d21-0306-4ac1-a6fd-df8e8b800715
 (1 row)
 
 RESET
@@ -32,7 +32,7 @@ DO
 DO
            case_id            | ok |                                        detail                                         
 ------------------------------+----+---------------------------------------------------------------------------------------
- MIG_ORGS                     | t  | org_a=de14d2a0-4576-4338-91f9-05eba4709c48 org_b=4207a223-ccc3-45dc-9248-82d16bb2e9ca
+ MIG_ORGS                     | t  | org_a=b4766bd8-57cc-480b-bd0f-4aeaa96b2395 org_b=d6618d21-0306-4ac1-a6fd-df8e8b800715
  SEED_ACCOUNTS                | t  | accounts=24
  A1_NO_BOOTSTRAP_ESCALATION   | t  | outsider owner insert blocked
  A2_SEED_OWNER_ONLY           | t  | student seed blocked
@@ -47,7 +47,7 @@ DO
  RPC_STUB_TEACHER_AUTHZ       | t  | teacher book stub denied or stub raise
  LEARNING_PEER_ISOLATION      | t  | owner-b saw 0 org_a progress rows
  JOURNAL_NO_DIRECT_INSERT     | t  | authenticated journal insert blocked by GRANT revoke
- JOURNAL_BALANCE              | t  | journal entry 04d5661b-0341-4d7f-8b36-98836df593f4 unbalanced: debit=100 credit=0
+ JOURNAL_BALANCE              | t  | journal entry 8a6bf5c5-6b6a-4dad-af1a-8b86b2f1e31a unbalanced: debit=100 credit=0
 (16 rows)
 
  passed | failed | total 
