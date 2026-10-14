@@ -1,8 +1,9 @@
 # Supabase integration progress — Nordlicht (local-safe phase)
 
 **Stand:** 2026-10-14  
-**Branch:** `cursor/supabase-app-integration-2188` (from PR #2 tip)  
-**Mode:** dual-mode app + new app RPCs in repo; **no** handels/TrueFuel changes
+**Branch:** `cursor/supabase-app-integration-2188` (PR #3 draft)  
+**Mode:** dual-mode app + new app RPCs in repo; **no** handels/TrueFuel changes  
+**Kanonisch im Repo:** `docs/supabase-integration-progress.md`
 
 ---
 
@@ -14,9 +15,9 @@
 | Supabase mode (URL + anon) | **Implemented** — AuthGate, org context, adapter, RPC book/pay/WE, import wizard |
 | `npm test` | **69/69** passed |
 | `npm run typecheck` | **OK** |
-| `npm run build` | run in CI/this agent after commit |
-| Remote apply of `app_rpcs_v1` | **Blocked** — MCP account currently lists only TrueFuel (`ipblsxncnwyizdxudtrc`); review/handels not visible → no remote SQL |
-| handels / TrueFuel | **Untouched** (identity policy; no apply/pause/delete) |
+| `npm run build` | **OK** (prior agent) |
+| Remote apply of `app_rpcs_v1` | **Done** — applied on review `tbxdoapspjhabcsxgllx` only (`nordlicht_app_rpcs_v1`, history `20261014094746`); smoke **9/9 PASS** |
+| handels / TrueFuel | **Untouched** (identity-only peek; no SQL/migrations/pause/delete) |
 
 ---
 
@@ -26,7 +27,8 @@
 
 - Verified PR #2 tip vs PR #1 frontend: grants, booking RPCs, payment idempotency migrations + harness present; schema/RLS not rewritten.
 - New migration only: `20261014120000_nordlicht_app_rpcs_v1.sql` (`record_goods_receipt`, `import_workspace`).
-- Local Vitest green; local SQL harness not re-run here (no `psql` in this environment).
+- Local Vitest green; local SQL harness not re-run (no `psql` in agent environment).
+- **Remote (review only):** `apply_migration` `nordlicht_app_rpcs_v1` from branch tip sha256 `a6aa6c6f58347cabdf100a01a41ed25c8a078ecb5218b1a4de5b54e771d178c8`.
 
 ### B — Dual-mode foundation
 
@@ -65,7 +67,8 @@ No silent hybrid: supabase mode does **not** write the journal to localStorage; 
 
 - Existing localStorage suite kept.
 - New: `env.test.ts`, `workspaceHash.test.ts`, `localWorkspaceRepository.test.ts`.
-- **69/69** Vitest; typecheck OK.
+- **69/69** Vitest; typecheck + build OK.
+- Remote synthetic smoke (review): import_workspace idempotency + record_goods_receipt over-delivery — **9/9 PASS**, data cleaned up.
 
 ### F — Hosting prep
 
@@ -73,40 +76,31 @@ No silent hybrid: supabase mode does **not** write the journal to localStorage; 
 - `public/_redirects` SPA fallback
 - **No** Pages deploy / new prod resources
 
-### G — This document
+### G — Deliverable
 
-- Repo: `docs/supabase-integration-progress.md`
-- Store mirror: same path under Project Agent Store `docs/`
-
----
-
-## How to run
-
-```bash
-# Demo (default)
-npm install && npm run dev
-
-# Online (review project only — never handels)
-cp .env.example .env.local
-# set VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY (anon only)
-npm run dev
-```
+- Repo + store: `docs/supabase-integration-progress.md`
 
 ---
 
-## Remaining online steps (not this phase)
+## Demo vs Supabase mode
 
-1. Restore MCP/access to review project `tbxdoapspjhabcsxgllx` and apply `nordlicht_app_rpcs_v1` after identity verify.
-2. Implement `post_learning_practice` RPC; enable capability.
+**Demo (default):** full Workspace v4; book/pay/WE/learning practice local; no AuthGate.
+
+**Supabase:** Auth + org required; book/pay/WE via RPC; master data via PostgREST; import wizard; manual journal + learning practice journal + demo reset off.
+
+---
+
+## Blockers / next
+
+1. ~~Remote apply `app_rpcs_v1` on review~~ — **done** (`tbxdoapspjhabcsxgllx`).
+2. `post_learning_practice` still stub.
 3. Draft-save paths: make invoice/PO/vendor saves fully async + await errors in UI.
 4. Cloudflare Pages deploy only with approved env pointing at review (not handels).
-5. Productive handels freigabe remains **out of scope**.
+5. handels freigabe out of scope.
 
----
+## Safety
 
-## Safety confirmations
-
-- `nordlicht-handels` (`kicwytgtrdadrhhlfrnn`): **not modified**
-- TrueFuel (`ipblsxncnwyizdxudtrc`): **not activated/changed/deleted**
-- No `service_role` in frontend/git
-- Applied migrations not rewritten; fixes = new migration files only
+- handels (`kicwytgtrdadrhhlfrnn`): untouched (identity peek only)  
+- TrueFuel (`ipblsxncnwyizdxudtrc`): untouched (identity peek only)  
+- No service_role in frontend/git  
+- No pause/delete; no other migrations applied  
