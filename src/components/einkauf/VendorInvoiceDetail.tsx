@@ -57,12 +57,13 @@ export function VendorInvoiceDetail() {
 
   const handleBook = () => {
     setError(null)
-    const result = bookVendorInvoice(invoice.id)
-    if (!result.ok) {
-      setError(result.message)
-      return
-    }
-    setMessage('Eingangsrechnung wurde ins zentrale Journal gebucht.')
+    void bookVendorInvoice(invoice.id).then((result) => {
+      if (!result.ok) {
+        setError(result.message)
+        return
+      }
+      setMessage('Eingangsrechnung wurde ins zentrale Journal gebucht.')
+    })
   }
 
   const handlePayment = (event: FormEvent) => {
@@ -74,18 +75,19 @@ export function VendorInvoiceDetail() {
       setError('Bitte einen gültigen Betrag eingeben.')
       return
     }
-    const result = recordVendorPayment(invoice.id, {
+    void recordVendorPayment(invoice.id, {
       date: payDate,
       amountCents,
       bankAccount: payAccount,
       reference: payReference,
+    }).then((result) => {
+      if (!result.ok) {
+        setError(result.message)
+        return
+      }
+      setMessage('Zahlungsausgang gebucht (Verbindlichkeit an Bank).')
+      setPayAmount('')
     })
-    if (!result.ok) {
-      setError(result.message)
-      return
-    }
-    setMessage('Zahlungsausgang gebucht (Verbindlichkeit an Bank).')
-    setPayAmount('')
   }
 
   return (

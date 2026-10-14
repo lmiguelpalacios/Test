@@ -5,8 +5,11 @@
 --   (next_document_number, book_sales_invoice, book_vendor_invoice,
 --    record_sales_payment, record_vendor_payment)
 --
--- This file retains STUB bodies only for:
---   record_goods_receipt, post_learning_practice, import_workspace
+-- Remaining stubs in this file:
+--   post_learning_practice  (still stub)
+--
+-- SUPERSEDED by migration 20261014120000_nordlicht_app_rpcs_v1.sql:
+--   record_goods_receipt, import_workspace
 --
 -- Do NOT apply the five core stubs here — the local harness applies the
 -- booking migration instead. Do NOT apply via apply_migration / execute_sql

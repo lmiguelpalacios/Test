@@ -17,6 +17,8 @@ npm install
 npm run dev
 ```
 
+Optionaler **Supabase-Modus** (sonst lokal/demo): `.env.example` → `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` (nur anon). Details: `docs/supabase-integration-progress.md`, Hosting: `docs/supabase-hosting-cloudflare-pages.md`.
+
 Produktion / Cloudflare Pages–tauglicher Build:
 
 ```bash
@@ -33,10 +35,10 @@ npm test
 
 ### Buchhaltung, Verkauf, Einkauf, Berichte, Lernmodus & Persistenz
 
-- Gemeinsame Journal-Datenquelle (`AccountingProvider` + Workspace-`localStorage` v4)
-- Verkauf / Einkauf / Berichte wie zuvor
-- Lernmodus: Buchungsaufgaben mit Bewertung; Journal nur nach ausdrücklicher Übungsübernahme
-- Speichern/Laden inkl. Verkauf, Einkauf und Lernfortschritt; Reset löscht auch Lernfortschritt
+- Dual-Mode: lokal Workspace-`localStorage` v4 **oder** Supabase (Auth/Org/RPC) — kein stiller Hybrid
+- Verkauf / Einkauf / Berichte; online: Buchung/Zahlung über DEFINER-RPCs
+- Lernmodus: Bewertung lokal/online; Übungsjournal-Übernahme online noch gesperrt
+- Expliziter Workspace-v4-Import-Wizard unter Einstellungen (Supabase/Owner)
 - Dashboard: Journal-Kennzahlen; YTD-Grafik bleibt separate Demo
 
 

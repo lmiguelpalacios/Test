@@ -15,17 +15,27 @@ export function AccountingOverview() {
     persistSource,
     persistWarning,
     resetToDemo,
+    isLocalDemoMode,
+    capabilities,
   } = useAccounting()
   const recent = entries.slice(0, 5)
 
   const persistLabel =
     persistSource === 'storage'
       ? 'aus Browser-Speicher'
-      : persistSource === 'recovered-demo'
-        ? 'Demo nach Wiederherstellung'
-        : 'Demo-Daten'
+      : persistSource === 'supabase'
+        ? 'aus Supabase-Organisation'
+        : persistSource === 'recovered-demo'
+          ? 'Demo nach Wiederherstellung'
+          : persistSource === 'empty'
+            ? 'noch keine Org-Daten'
+            : 'Demo-Daten'
 
   function handleReset() {
+    if (!capabilities.resetDemo) {
+      window.alert('Demo-Reset ist im Supabase-Modus deaktiviert.')
+      return
+    }
     const confirmed = window.confirm(
       'Übungsstand zurücksetzen?\n\nAlle im Browser gespeicherten Journal-, Verkaufs-, Einkaufs- und Lernfortschrittsdaten werden durch die ursprünglichen Demo-Daten ersetzt.',
     )
@@ -81,7 +91,9 @@ export function AccountingOverview() {
         </article>
         <article className="kpi-card">
           <p className="kpi-label">Persistenz</p>
-          <p className="kpi-value kpi-value-text">localStorage</p>
+          <p className="kpi-value kpi-value-text">
+            {isLocalDemoMode ? 'localStorage' : 'Supabase'}
+          </p>
           <p className="kpi-hint">{persistLabel}</p>
         </article>
       </section>

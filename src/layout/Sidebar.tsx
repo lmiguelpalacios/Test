@@ -1,6 +1,8 @@
 import { NavLink } from 'react-router-dom'
 import { Building2, X } from 'lucide-react'
+import { ModeBadge } from '../components/ModeBadge'
 import { companyInfo } from '../data/demo-data'
+import { useAccounting } from '../accounting/AccountingContext'
 import { navItems } from './nav'
 
 interface SidebarProps {
@@ -9,6 +11,8 @@ interface SidebarProps {
 }
 
 export function Sidebar({ open, onClose }: SidebarProps) {
+  const { isLocalDemoMode, dataMode } = useAccounting()
+
   return (
     <>
       <div
@@ -56,9 +60,11 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         </nav>
 
         <div className="sidebar-footer">
-          <span className="demo-chip">Lokaler Demo-Modus</span>
+          <ModeBadge />
           <p className="sidebar-footnote">
-            Journal im Browser (localStorage) · ohne Backend
+            {isLocalDemoMode
+              ? 'Journal im Browser (localStorage) · ohne Backend'
+              : `Online-Org-Daten (${dataMode}) · kein stiller Hybrid`}
           </p>
         </div>
       </aside>

@@ -1146,3 +1146,168 @@ button.text-link {
     grid-template-columns: 1fr;
   }
 }
+
+/* Dual-mode / auth / import */
+.mode-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+  border: 1px solid var(--border);
+}
+
+.mode-chip-online {
+  color: #0b4a6f;
+  background: #e8f4fb;
+  border-color: #b9d9ec;
+}
+
+.mode-chip-warn {
+  color: #8a5a00;
+  background: #fff7e6;
+  border-color: #f0d9a0;
+}
+
+.demo-banner-online {
+  background: #e8f4fb;
+  border-color: #b9d9ec;
+  color: #0b4a6f;
+}
+
+.auth-gate {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+  background:
+    radial-gradient(circle at top left, #e6f4ef 0%, transparent 45%),
+    linear-gradient(180deg, #f7f9fc 0%, #eef2f7 100%);
+}
+
+.auth-card {
+  width: min(440px, 100%);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  padding: 1.5rem;
+}
+
+.auth-card h1 {
+  margin: 0 0 0.5rem;
+  font-size: 1.35rem;
+}
+
+.auth-lead,
+.auth-error,
+.auth-info,
+.panel-meta {
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.auth-error {
+  color: var(--danger);
+}
+
+.auth-info {
+  color: var(--success);
+}
+
+.auth-form {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 1rem;
+}
+
+.auth-form label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.auth-form input {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 0.7rem;
+  background: #fff;
+}
+
+.auth-actions,
+.page-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.btn {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.9rem;
+  background: var(--bg-muted);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.btn-secondary {
+  background: #fff;
+}
+
+.org-list,
+.capability-list,
+.import-counts {
+  margin: 0.75rem 0;
+  padding-left: 1.1rem;
+}
+
+.cap-off {
+  color: var(--text-muted);
+}
+
+.settings-dl {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0 0 1rem;
+}
+
+.settings-dl div {
+  display: grid;
+  grid-template-columns: 10rem 1fr;
+  gap: 0.5rem;
+}
+
+.settings-dl dt {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.settings-dl dd {
+  margin: 0;
+}
+
+.import-wizard .import-confirm {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  margin: 0.75rem 0;
+  font-size: 0.9rem;
+}

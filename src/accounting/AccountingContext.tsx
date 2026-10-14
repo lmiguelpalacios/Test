@@ -62,6 +62,9 @@ import { buildGoodsReceiptStockMovements } from '../purchase/stock'
 import { buildInvoiceBookingDrafts } from '../sales/bookInvoice'
 import { validateInvoiceLine } from '../sales/invoiceMath'
 import { buildPaymentBookingDraft } from '../sales/recordPayment'
+import { useDataBackend } from '../persistence/DataBackendContext'
+import type { ModuleCapabilities } from '../persistence/types'
+import { ensureUuid } from '../persistence/supabaseWorkspaceRepository'
 import {
   loadWorkspace,
   resetWorkspace,
@@ -81,15 +84,21 @@ type AddEntryResult =
 
 type ActionResult = { ok: true } | { ok: false; message: string }
 
+type PersistSource = JournalLoadSource | 'supabase' | 'empty'
+
 interface AccountingContextValue {
   entries: JournalEntry[]
   sales: SalesState
   purchase: PurchaseState
   periodLabel: string
   totals: ReturnType<typeof computeAccountingTotals>
-  persistSource: JournalLoadSource
+  persistSource: PersistSource
   persistWarning?: string
-  isLocalDemoMode: true
+  isLocalDemoMode: boolean
+  dataMode: 'local' | 'supabase'
+  capabilities: ModuleCapabilities
+  backendBusy: boolean
+  reloadFromBackend: () => Promise<void>
   addEntry: (draft: JournalEntryDraft) => AddEntryResult
   resetToDemo: () => void
   upsertCustomer: (customer: Omit<Customer, 'id'> & { id?: string }) => Customer
@@ -100,7 +109,7 @@ interface AccountingContextValue {
       'id' | 'number' | 'journalEntryIds' | 'createdAt' | 'updatedAt' | 'bookedAt'
     > & { id?: string; number?: string },
   ) => ActionResult & { invoice?: SalesInvoice }
-  bookInvoice: (invoiceId: string) => ActionResult
+  bookInvoice: (invoiceId: string) => Promise<ActionResult>
   recordInvoicePayment: (
     invoiceId: string,
     input: {
@@ -109,7 +118,7 @@ interface AccountingContextValue {
       bankAccount: '1200' | '1000'
       reference?: string
     },
-  ) => ActionResult
+  ) => Promise<ActionResult>
   upsertSupplier: (supplier: Omit<Supplier, 'id'> & { id?: string }) => Supplier
   savePurchaseOrder: (
     input: Omit<PurchaseOrder, 'id' | 'number' | 'createdAt' | 'updatedAt'> & {
@@ -121,14 +130,14 @@ interface AccountingContextValue {
   recordGoodsReceipt: (
     orderId: string,
     input: { receiptDate: string; lines: GoodsReceiptLine[] },
-  ) => ActionResult & { receipt?: GoodsReceipt }
+  ) => Promise<ActionResult & { receipt?: GoodsReceipt }>
   saveVendorInvoice: (
     input: Omit<
       VendorInvoice,
       'id' | 'internalNumber' | 'journalEntryIds' | 'createdAt' | 'updatedAt' | 'bookedAt'
     > & { id?: string; internalNumber?: string },
   ) => ActionResult & { invoice?: VendorInvoice }
-  bookVendorInvoice: (invoiceId: string) => ActionResult
+  bookVendorInvoice: (invoiceId: string) => Promise<ActionResult>
   recordVendorPayment: (
     invoiceId: string,
     input: {
@@ -137,7 +146,7 @@ interface AccountingContextValue {
       bankAccount: '1200' | '1000'
       reference?: string
     },
-  ) => ActionResult
+  ) => Promise<ActionResult>
   learning: LearningState
   /** Prüft Antwort — schreibt kein Journal. */
   submitLearningAnswer: (
@@ -197,7 +206,43 @@ function createStockMovementsForSalesInvoice(
 }
 
 export function AccountingProvider({ children }: { children: ReactNode }) {
+  const {
+    mode,
+    repository,
+    capabilities,
+    awaitingRemoteSession,
+  } = useDataBackend()
+  const isLocal = mode === 'local'
+
   const initial = useMemo(() => {
+    if (!isLocal) {
+      return {
+        entries: [] as JournalEntry[],
+        sales: {
+          customers: [],
+          products: [],
+          invoices: [],
+          payments: [],
+          nextInvoiceSequence: 1,
+        } as SalesState,
+        purchase: {
+          suppliers: [],
+          orders: [],
+          receipts: [],
+          vendorInvoices: [],
+          vendorPayments: [],
+          stockMovements: [],
+          nextOrderSequence: 1,
+          nextReceiptSequence: 1,
+          nextVendorInvoiceSequence: 1,
+        } as PurchaseState,
+        learning: { progress: [], totalPoints: 0 } as LearningState,
+        source: 'empty' as PersistSource,
+        warning: awaitingRemoteSession
+          ? 'Supabase-Modus: warte auf Anmeldung/Organisation…'
+          : undefined,
+      }
+    }
     const storage = getBrowserStorage()
     if (!storage) {
       const loaded = loadWorkspace(noopStorage())
@@ -207,19 +252,56 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
       }
     }
     return loadWorkspace(storage)
-  }, [])
+  }, [isLocal, awaitingRemoteSession])
 
   const [entries, setEntries] = useState<JournalEntry[]>(initial.entries)
   const [sales, setSales] = useState<SalesState>(initial.sales)
   const [purchase, setPurchase] = useState<PurchaseState>(initial.purchase)
   const [learning, setLearning] = useState<LearningState>(initial.learning)
-  const [persistSource, setPersistSource] = useState<JournalLoadSource>(initial.source)
+  const [persistSource, setPersistSource] = useState<PersistSource>(initial.source)
   const [persistWarning, setPersistWarning] = useState<string | undefined>(
     initial.warning,
   )
+  const [backendBusy, setBackendBusy] = useState(false)
   const bookingLocks = useRef(new Set<string>())
 
+  const applySnapshot = useCallback(
+    (snapshot: {
+      entries: JournalEntry[]
+      sales: SalesState
+      purchase: PurchaseState
+      learning: LearningState
+      source: PersistSource
+      warning?: string
+    }) => {
+      setEntries(snapshot.entries)
+      setSales(snapshot.sales)
+      setPurchase(snapshot.purchase)
+      setLearning(snapshot.learning)
+      setPersistSource(snapshot.source)
+      setPersistWarning(snapshot.warning)
+    },
+    [],
+  )
+
+  const reloadFromBackend = useCallback(async () => {
+    if (!repository || mode !== 'supabase') return
+    setBackendBusy(true)
+    try {
+      const snapshot = await repository.load()
+      applySnapshot(snapshot)
+    } finally {
+      setBackendBusy(false)
+    }
+  }, [repository, mode, applySnapshot])
+
   useEffect(() => {
+    if (mode !== 'supabase' || !repository) return
+    void reloadFromBackend()
+  }, [mode, repository, reloadFromBackend])
+
+  useEffect(() => {
+    if (!isLocal) return
     const storage = getBrowserStorage()
     if (!storage) return
     try {
@@ -229,9 +311,21 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
         'Daten konnten nicht im Browser gespeichert werden (localStorage voll oder blockiert).',
       )
     }
-  }, [entries, sales, purchase, learning])
+  }, [isLocal, entries, sales, purchase, learning])
 
   const addEntry = useCallback((draft: JournalEntryDraft): AddEntryResult => {
+    if (!capabilities.manualJournal) {
+      return {
+        ok: false,
+        issues: [
+          {
+            field: 'general',
+            message:
+              'Manuelle Journalbuchungen sind im Supabase-Modus nicht freigeschaltet (nur DEFINER-RPCs).',
+          },
+        ],
+      }
+    }
     const result = validateJournalEntry(draft, chartOfAccounts)
     if (!result.ok) return result
     const entry: JournalEntry = {
@@ -242,9 +336,13 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
     setEntries((prev) => [entry, ...prev])
     setPersistSource('storage')
     return { ok: true, entry }
-  }, [])
+  }, [capabilities.manualJournal])
 
   const resetToDemo = useCallback(() => {
+    if (!capabilities.resetDemo) {
+      setPersistWarning('Demo-Reset ist im Supabase-Modus deaktiviert (Org-Daten bleiben).')
+      return
+    }
     const storage = getBrowserStorage() ?? noopStorage()
     const demo = resetWorkspace(storage)
     setEntries(demo.entries)
@@ -257,7 +355,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
         ? undefined
         : 'localStorage ist nicht verfügbar — Demo nur im Arbeitsspeicher geladen.',
     )
-  }, [])
+  }, [capabilities.resetDemo])
 
   const submitLearningAnswer = useCallback(
     (
@@ -320,6 +418,13 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
 
   const postLearningPracticeEntry = useCallback(
     (taskId: string): ActionResult => {
+      if (!capabilities.learningPracticeJournal) {
+        return {
+          ok: false,
+          message:
+            'Übungsbuchung ins Journal ist im Supabase-Modus noch nicht freigeschaltet (RPC stub).',
+        }
+      }
       const task = getLearningTaskById(taskId)
       if (!task) return { ok: false, message: 'Lernaufgabe nicht gefunden.' }
       if (!task.allowPracticeJournalPost) {
@@ -376,13 +481,13 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
         bookingLocks.current.delete(lockKey)
       }
     },
-    [learning.progress],
+    [learning.progress, capabilities.learningPracticeJournal],
   )
 
   const upsertCustomer = useCallback(
     (input: Omit<Customer, 'id'> & { id?: string }): Customer => {
       const customer: Customer = {
-        id: input.id ?? createId('cust'),
+        id: input.id ?? (isLocal ? createId('cust') : ensureUuid(undefined)),
         number: input.number.trim(),
         companyName: input.companyName.trim(),
         contactName: input.contactName?.trim() || undefined,
@@ -398,16 +503,19 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
             : [...prev.customers, customer],
         }
       })
-      setPersistSource('storage')
+      setPersistSource(isLocal ? 'storage' : 'supabase')
+      if (!isLocal && repository?.upsertCustomer) {
+        void repository.upsertCustomer(customer)
+      }
       return customer
     },
-    [],
+    [isLocal, repository],
   )
 
   const upsertProduct = useCallback(
     (input: Omit<Product, 'id'> & { id?: string }): Product => {
       const product: Product = {
-        id: input.id ?? createId('prod'),
+        id: input.id ?? (isLocal ? createId('prod') : ensureUuid(undefined)),
         sku: input.sku.trim(),
         name: input.name.trim(),
         description: input.description?.trim() || undefined,
@@ -426,10 +534,13 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
             : [...prev.products, product],
         }
       })
-      setPersistSource('storage')
+      setPersistSource(isLocal ? 'storage' : 'supabase')
+      if (!isLocal && repository?.upsertProduct) {
+        void repository.upsertProduct(product)
+      }
       return product
     },
-    [],
+    [isLocal, repository],
   )
 
   const saveDraftInvoice = useCallback(
@@ -503,7 +614,18 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
   )
 
   const bookInvoice = useCallback(
-    (invoiceId: string): ActionResult => {
+    async (invoiceId: string): Promise<ActionResult> => {
+      if (!isLocal) {
+        if (!repository) return { ok: false, message: 'Supabase-Repository nicht bereit.' }
+        setBackendBusy(true)
+        try {
+          const result = await repository.bookSalesInvoice(invoiceId)
+          if (result.ok) await reloadFromBackend()
+          return result
+        } finally {
+          setBackendBusy(false)
+        }
+      }
       if (bookingLocks.current.has(`book:${invoiceId}`)) {
         return { ok: false, message: 'Buchung läuft bereits — Doppelklick verhindert.' }
       }
@@ -573,11 +695,11 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
         bookingLocks.current.delete(`book:${invoiceId}`)
       }
     },
-    [sales.invoices, sales.customers, sales.products],
+    [isLocal, repository, reloadFromBackend, sales.invoices, sales.customers, sales.products],
   )
 
   const recordInvoicePayment = useCallback(
-    (
+    async (
       invoiceId: string,
       input: {
         date: string
@@ -585,7 +707,18 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
         bankAccount: '1200' | '1000'
         reference?: string
       },
-    ): ActionResult => {
+    ): Promise<ActionResult> => {
+      if (!isLocal) {
+        if (!repository) return { ok: false, message: 'Supabase-Repository nicht bereit.' }
+        setBackendBusy(true)
+        try {
+          const result = await repository.recordSalesPayment(invoiceId, input)
+          if (result.ok) await reloadFromBackend()
+          return result
+        } finally {
+          setBackendBusy(false)
+        }
+      }
       const lockKey = `pay:${invoiceId}`
       if (bookingLocks.current.has(lockKey)) {
         return { ok: false, message: 'Zahlung wird bereits verarbeitet.' }
@@ -648,13 +781,13 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
         bookingLocks.current.delete(lockKey)
       }
     },
-    [sales.invoices, sales.payments],
+    [isLocal, repository, reloadFromBackend, sales.invoices, sales.payments],
   )
 
   const upsertSupplier = useCallback(
     (input: Omit<Supplier, 'id'> & { id?: string }): Supplier => {
       const supplier: Supplier = {
-        id: input.id ?? createId('sup'),
+        id: input.id ?? (isLocal ? createId('sup') : ensureUuid(undefined)),
         number: input.number.trim(),
         companyName: input.companyName.trim(),
         contactName: input.contactName?.trim() || undefined,
@@ -670,10 +803,13 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
             : [...prev.suppliers, supplier],
         }
       })
-      setPersistSource('storage')
+      setPersistSource(isLocal ? 'storage' : 'supabase')
+      if (!isLocal && repository?.upsertSupplier) {
+        void repository.upsertSupplier(supplier)
+      }
       return supplier
     },
-    [],
+    [isLocal, repository],
   )
 
   const savePurchaseOrder = useCallback(
@@ -759,10 +895,23 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const recordGoodsReceipt = useCallback(
-    (
+    async (
       orderId: string,
       input: { receiptDate: string; lines: GoodsReceiptLine[] },
-    ): ActionResult & { receipt?: GoodsReceipt } => {
+    ): Promise<ActionResult & { receipt?: GoodsReceipt }> => {
+      if (!isLocal) {
+        if (!repository?.recordGoodsReceipt) {
+          return { ok: false, message: 'Wareneingang-RPC nicht verfügbar.' }
+        }
+        setBackendBusy(true)
+        try {
+          const result = await repository.recordGoodsReceipt(orderId, input)
+          if (result.ok) await reloadFromBackend()
+          return result
+        } finally {
+          setBackendBusy(false)
+        }
+      }
       const order = purchase.orders.find((item) => item.id === orderId)
       if (!order) return { ok: false, message: 'Bestellung nicht gefunden.' }
       if (!order.confirmedAt) {
@@ -833,7 +982,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
       setPersistSource('storage')
       return { ok: true, receipt }
     },
-    [purchase.orders, purchase.receipts, sales.products],
+    [isLocal, repository, reloadFromBackend, purchase.orders, purchase.receipts, sales.products],
   )
 
   const saveVendorInvoice = useCallback(
@@ -903,7 +1052,18 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
   )
 
   const bookVendorInvoice = useCallback(
-    (invoiceId: string): ActionResult => {
+    async (invoiceId: string): Promise<ActionResult> => {
+      if (!isLocal) {
+        if (!repository) return { ok: false, message: 'Supabase-Repository nicht bereit.' }
+        setBackendBusy(true)
+        try {
+          const result = await repository.bookVendorInvoice(invoiceId)
+          if (result.ok) await reloadFromBackend()
+          return result
+        } finally {
+          setBackendBusy(false)
+        }
+      }
       if (bookingLocks.current.has(`vbook:${invoiceId}`)) {
         return { ok: false, message: 'Buchung läuft bereits.' }
       }
@@ -964,11 +1124,11 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
         bookingLocks.current.delete(`vbook:${invoiceId}`)
       }
     },
-    [purchase.vendorInvoices, purchase.suppliers],
+    [isLocal, repository, reloadFromBackend, purchase.vendorInvoices, purchase.suppliers],
   )
 
   const recordVendorPayment = useCallback(
-    (
+    async (
       invoiceId: string,
       input: {
         date: string
@@ -976,7 +1136,18 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
         bankAccount: '1200' | '1000'
         reference?: string
       },
-    ): ActionResult => {
+    ): Promise<ActionResult> => {
+      if (!isLocal) {
+        if (!repository) return { ok: false, message: 'Supabase-Repository nicht bereit.' }
+        setBackendBusy(true)
+        try {
+          const result = await repository.recordVendorPayment(invoiceId, input)
+          if (result.ok) await reloadFromBackend()
+          return result
+        } finally {
+          setBackendBusy(false)
+        }
+      }
       const lockKey = `vpay:${invoiceId}`
       if (bookingLocks.current.has(lockKey)) {
         return { ok: false, message: 'Zahlung wird bereits verarbeitet.' }
@@ -1036,7 +1207,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
         bookingLocks.current.delete(lockKey)
       }
     },
-    [purchase.vendorInvoices, purchase.vendorPayments],
+    [isLocal, repository, reloadFromBackend, purchase.vendorInvoices, purchase.vendorPayments],
   )
 
   const value = useMemo<AccountingContextValue>(
@@ -1049,7 +1220,11 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
       totals: computeAccountingTotals(entries, BOOKING_PERIOD_LABEL),
       persistSource,
       persistWarning,
-      isLocalDemoMode: true,
+      isLocalDemoMode: isLocal,
+      dataMode: mode,
+      capabilities,
+      backendBusy,
+      reloadFromBackend,
       addEntry,
       resetToDemo,
       upsertCustomer,
@@ -1075,6 +1250,11 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
       learning,
       persistSource,
       persistWarning,
+      isLocal,
+      mode,
+      capabilities,
+      backendBusy,
+      reloadFromBackend,
       addEntry,
       resetToDemo,
       upsertCustomer,

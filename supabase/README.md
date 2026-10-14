@@ -19,7 +19,8 @@ In diesem Ordner liegen **nur Repo-Artefakte** — keine Credentials, kein Clien
 | `migrations/20261013140000_nordlicht_grants_v1.sql` | Least-privilege grants |
 | `migrations/20261013140100_nordlicht_booking_rpcs_v1.sql` | Kern-Booking-/Payment-RPCs |
 | `migrations/20261014100000_nordlicht_payment_idempotency_v1.sql` | Unique natural-key indexes (ZE/ZA); lokal / später Review |
-| `sql/rpc_booking_stubs.sql` | RPC-Stubs mit Authz (raise) |
+| `migrations/20261014120000_nordlicht_app_rpcs_v1.sql` | `record_goods_receipt` + `import_workspace` (app dual-mode) |
+| `sql/rpc_booking_stubs.sql` | verbleibender Stub: `post_learning_practice` |
 | `sql/security_checks.sql` | Checks für isolierte Review-DB |
 | `SCHEMA.md` | Tabellen, Rollen, Integrität |
 

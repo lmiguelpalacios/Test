@@ -74,13 +74,14 @@ export function OrderDetail() {
       })
       .filter((line): line is { orderLineId: string; quantity: number } => line !== null)
 
-    const result = recordGoodsReceipt(order.id, { receiptDate, lines })
-    if (!result.ok) {
-      setError(result.message)
-      return
-    }
-    setMessage(`Wareneingang ${result.receipt?.number} erfasst.`)
-    setQtyByLine({})
+    void recordGoodsReceipt(order.id, { receiptDate, lines }).then((result) => {
+      if (!result.ok) {
+        setError(result.message)
+        return
+      }
+      setMessage(`Wareneingang ${result.receipt?.number} erfasst.`)
+      setQtyByLine({})
+    })
   }
 
   return (
