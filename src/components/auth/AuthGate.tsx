@@ -40,7 +40,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       setBusy(false)
       if (!result.ok) setMessage(result.message)
       else if (kind === 'up') {
-        setMessage('Konto angelegt — ggf. E-Mail bestätigen, dann anmelden.')
+        setMessage(
+          'Konto angelegt — bitte Bestätigungs-E-Mail prüfen. Nach dem Klick landest du wieder auf dieser Preview-Seite und kannst dich anmelden.',
+        )
       }
     }
 

@@ -1,6 +1,6 @@
 # Nordlicht Handels GmbH — Release readiness (Preview/Test)
 
-**Stand:** 2026-10-14  
+**Stand:** 2026-10-15  
 **Branch / PR:** `cursor/supabase-app-integration-2188` — [PR #3](https://github.com/lmiguelpalacios/Test/pull/3) (draft)  
 **Scope:** Dual-mode app fixes + Cloudflare Pages **Preview/Test** against review backend  
 **Not claimed:** Production / handels freigabe
@@ -30,13 +30,15 @@
 |------|-------|
 | Pages project | `nordlicht-preview` (Cloudflare free / standard usage) |
 | Canonical URL | https://nordlicht-preview.pages.dev |
-| Production deploy id | `527719b9-9b9d-4c03-af79-741b2719168d` |
+| Production deploy id | `c5fa3bb5-ced1-42ee-8e30-dae57e0d150f` |
 | Preview alias | https://preview.nordlicht-preview.pages.dev |
 | Reachability | **HTTP 200** for `/`, SPA `/buchhaltung`, JS/CSS assets |
 | Backend | **Review only** `https://tbxdoapspjhabcsxgllx.supabase.co` + **anon** key |
 | Label | Preview/Test — **not** handels production |
 | Custom domain / DNS | **None** (no Nordlicht zone in account; `*.pages.dev` only) |
 | Paid addons | **None** |
+| Signup redirect (app) | `signUp` passes `emailRedirectTo: ${window.location.origin}/` (verified in live bundle) |
+| Auth Site URL (review) | **Still needs Dashboard/API update** — see below; without it confirmation links can still open localhost |
 
 Build baked `VITE_SUPABASE_*` from review anon credentials at deploy time (Vite compile-time). Pages project env vars also set for future Git builds. Bundle contains review ref only; no `service_role`; no handels URL.
 
@@ -132,14 +134,39 @@ Apply **in this order** from repo `supabase/migrations/` (filenames = local sour
 
 ---
 
+## Auth Site URL (review) — required for confirmation emails
+
+App code now sends `emailRedirectTo` to the current origin, but Supabase Auth will still fall back to / reject against **Site URL** + **Redirect URLs** if those are still localhost.
+
+**Miguel — Dashboard (review project `tbxdoapspjhabcsxgllx` only):**
+
+1. Open [Supabase Dashboard](https://supabase.com/dashboard) → project **nordlicht-security-review** (`tbxdoapspjhabcsxgllx`).
+2. **Authentication** → **URL Configuration**.
+3. Set **Site URL** to `https://nordlicht-preview.pages.dev`.
+4. Under **Redirect URLs** / Additional Redirect URLs, include at least:
+   - `https://nordlicht-preview.pages.dev/**`
+   - `https://preview.nordlicht-preview.pages.dev/**`
+5. Save. Do **not** change `nordlicht-handels` or TrueFuel.
+
+**Management API** (if you have a personal access token):  
+`PATCH https://api.supabase.com/v1/projects/tbxdoapspjhabcsxgllx/config/auth` with  
+`{"site_url":"https://nordlicht-preview.pages.dev","uri_allow_list":"https://nordlicht-preview.pages.dev/**,https://preview.nordlicht-preview.pages.dev/**"}`.
+
+**Important:** Users who already received a confirmation email pointing at localhost need a **fresh signup or resend** after the Site URL change — old links stay broken.
+
+Agent session could not update Auth config: Supabase MCP has no Auth-config tool, and no `SUPABASE_ACCESS_TOKEN` was available for Management API / `supabase config push`.
+
+---
+
 ## Remaining risks / follow-ups
 
-1. **handels freigabe** — apply migrations 1–6 only after explicit approval; then point a *separate* Production Pages env at handels (never claim review = prod).
-2. `post_learning_practice` implementation or keep disabled.
-3. Master-data upserts still fire-and-forget (optimistic); improve await/rollback.
-4. Classroom join/invite flow (no invite code yet — Owner create or pre-provision membership).
-5. Optional: connect Pages GitHub source to PR branch for continuous preview builds.
-6. Advisor cleanup for `_nl_*` helper `search_path` if desired.
+1. **Auth Site URL on review** — complete Dashboard steps above (blocked without Management API token).
+2. **handels freigabe** — apply migrations 1–6 only after explicit approval; then point a *separate* Production Pages env at handels (never claim review = prod).
+3. `post_learning_practice` implementation or keep disabled.
+4. Master-data upserts still fire-and-forget (optimistic); improve await/rollback.
+5. Classroom join/invite flow (no invite code yet — Owner create or pre-provision membership).
+6. Optional: connect Pages GitHub source to PR branch for continuous preview builds.
+7. Advisor cleanup for `_nl_*` helper `search_path` if desired.
 
 ---
 

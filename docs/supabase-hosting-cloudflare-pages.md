@@ -1,6 +1,6 @@
 # Hosting — Cloudflare Pages (Preview/Test deployed)
 
-**Stand:** 2026-10-14  
+**Stand:** 2026-10-15  
 **Scope:** Vite SPA on Cloudflare Pages. Preview/Test points at **review** Supabase — never claim Production/handels until freigabe.
 
 ---
@@ -69,8 +69,24 @@ npm run build && npm run preview
 
 ---
 
+## Supabase Auth URL config (review)
+
+Without this, confirmation emails open **localhost** even when the app passes `emailRedirectTo`.
+
+| Setting | Value |
+|---------|--------|
+| Project | `tbxdoapspjhabcsxgllx` (nordlicht-security-review) only |
+| Site URL | `https://nordlicht-preview.pages.dev` |
+| Redirect URLs | `https://nordlicht-preview.pages.dev/**`, `https://preview.nordlicht-preview.pages.dev/**` |
+| Dashboard path | Authentication → URL Configuration |
+| App code | `signUp` options `emailRedirectTo` = current origin + `/` |
+
+After changing Site URL, resend confirmation for any user who already got a localhost link.
+
+---
+
 ## Deploy notes
 
-- This pass: **direct upload** of `dist` after `npm run build` with review env.
+- Latest: **direct upload** of `dist` after `npm run build` with review env (deploy `c5fa3bb5-ced1-42ee-8e30-dae57e0d150f`).
 - GitHub continuous builds preferred once CF↔GitHub is connected on this account.
 - No foreign sites/domains modified.
