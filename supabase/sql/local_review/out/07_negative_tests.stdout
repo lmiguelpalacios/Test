@@ -1,0 +1,57 @@
+DROP TABLE
+CREATE TABLE
+CREATE FUNCTION
+TRUNCATE TABLE
+INSERT 0 6
+INSERT 0 0
+              set_config              
+--------------------------------------
+ aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1
+(1 row)
+
+SET
+         create_organization          
+--------------------------------------
+ b4766bd8-57cc-480b-bd0f-4aeaa96b2395
+(1 row)
+
+RESET
+              set_config              
+--------------------------------------
+ bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1
+(1 row)
+
+SET
+         create_organization          
+--------------------------------------
+ d6618d21-0306-4ac1-a6fd-df8e8b800715
+(1 row)
+
+RESET
+DO
+DO
+           case_id            | ok |                                        detail                                         
+------------------------------+----+---------------------------------------------------------------------------------------
+ MIG_ORGS                     | t  | org_a=b4766bd8-57cc-480b-bd0f-4aeaa96b2395 org_b=d6618d21-0306-4ac1-a6fd-df8e8b800715
+ SEED_ACCOUNTS                | t  | accounts=24
+ A1_NO_BOOTSTRAP_ESCALATION   | t  | outsider owner insert blocked
+ A2_SEED_OWNER_ONLY           | t  | student seed blocked
+ A5_TEACHER_NO_OWNER_GRANT    | t  | teacher→owner blocked
+ A5_TEACHER_CAN_ADD_STUDENT   | t  | teacher→student allowed
+ TEACHER_NO_BOOKKEEPING_WRITE | t  | teacher invoice insert blocked
+ A3_CROSS_ORG_FK              | t  | org_a invoice + org_b customer rejected
+ RLS_CROSS_ORG_SELECT         | t  | student-a saw 0 org_b customers
+ ANON_NO_CUSTOMERS            | t  | raised=t count=-1
+ A4_BOOKED_LINES_IMMUTABLE    | t  | raised=f row_count=0
+ SEQ_NO_CLIENT_UPDATE         | t  | raised=t row_count=-1
+ RPC_STUB_TEACHER_AUTHZ       | t  | teacher book stub denied or stub raise
+ LEARNING_PEER_ISOLATION      | t  | owner-b saw 0 org_a progress rows
+ JOURNAL_NO_DIRECT_INSERT     | t  | authenticated journal insert blocked by GRANT revoke
+ JOURNAL_BALANCE              | t  | journal entry 8a6bf5c5-6b6a-4dad-af1a-8b86b2f1e31a unbalanced: debit=100 credit=0
+(16 rows)
+
+ passed | failed | total 
+--------+--------+-------
+     16 |      0 |    16
+(1 row)
+

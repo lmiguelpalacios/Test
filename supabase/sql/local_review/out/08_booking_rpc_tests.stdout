@@ -1,0 +1,39 @@
+DROP TABLE
+CREATE TABLE
+CREATE FUNCTION
+DO
+         case_id          | ok |                                                                          detail                                                                          
+--------------------------+----+----------------------------------------------------------------------------------------------------------------------------------------------------------
+ FIX_ORGS                 | t  | org_a=b4766bd8-57cc-480b-bd0f-4aeaa96b2395 org_b=d6618d21-0306-4ac1-a6fd-df8e8b800715 cust=25416e5e-c63d-4b80-a79b-dfa81258bf6f
+ SEQ_NEXT                 | t  | seq1=1 seq2=2
+ SEQ_TEACHER_FORBIDDEN    | t  | teacher sequence denied
+ ANON_BOOK_DENIED         | t  | anon book denied
+ OUTSIDER_ORG_B_FORBIDDEN | t  | owner-b cannot book org-a
+ AR_BOOK_OK               | t  | je=2d251dd5-6a6e-4f1b-afbf-d6b85a216588 booked=2026-10-14 08:46:06.781765+00 links=1 stock=1
+ AR_JOURNAL_BALANCED      | t  | AR journal soll=haben
+ AR_DOUBLE_BOOK           | t  | already_booked: sales invoice 3d22fb48-e8ce-463b-90d1-d6eab2f9d279
+ AR_BOOKED_IMMUTABLE      | t  | raised=f row_count=0
+ AR_PAY_OK                | t  | pay=960abeb6-8ffd-4a72-96f2-e9e558f6b0b3
+ AR_PAY_IDEMPOTENT        | t  | first=960abeb6-8ffd-4a72-96f2-e9e558f6b0b3 second=960abeb6-8ffd-4a72-96f2-e9e558f6b0b3
+ AR_PAY_SINGLE_ROW        | t  | payment rows=1
+ AR_PAY_OVERPAY           | t  | sales payment overpays invoice (paid=500 + 99999 > gross=2380)
+ AR_PAY_TEACHER_FORBIDDEN | t  | teacher payment denied
+ AR_EMPTY_LINES           | t  | invoice has no lines
+ AR_EMPTY_NO_PARTIAL      | t  | booked_at=
+ AR_MULTI_VAT_LINKS       | t  | links=3 first_je=151a5980-6d41-413a-84cc-902b7656572a
+ AR_GROUP_GROSS           | t  | group_gross=9658
+ AR_GROSS_HELPER_NOTED    | t  | helper_gross=9658 group_gross=9658 diverge=f
+ ER_BAD_ACCOUNT_ROLLBACK  | t  | raised=t booked= je_before=5 je_after=5 err=expense account 1400 invalid or not aufwand
+ ER_BOOK_OK               | t  | je=63e975e7-85a2-40f6-ae39-a995c1deb56e booked=2026-10-14 08:46:06.781765+00
+ ER_PAY_IDEMPOTENT        | t  | pay=b45b49ad-7e8c-464c-8123-8db691d64c42 retry=b45b49ad-7e8c-464c-8123-8db691d64c42
+ PAY_ZERO_AMOUNT          | t  | zero amount rejected
+ PAY_REQUIRES_BOOKED      | t  | sales payment requires booked invoice
+ PAY_NO_DIRECT_INSERT     | t  | authenticated cannot insert sales_payments directly
+ AR_MIDTXN_ROLLBACK       | t  | raised=t booked= links=0 je_before=8 je_after=8 err=duplicate key value violates unique constraint "journal_entries_organization_id_document_number_key"
+(26 rows)
+
+ passed | failed | total 
+--------+--------+-------
+     26 |      0 |    26
+(1 row)
+
