@@ -1,17 +1,59 @@
 # Nordlicht — Production migration check (`nordlicht-handels`)
 
-**Stand:** 2026-10-15  
-**Check type:** READ-ONLY on production · no apply · no deploy  
-**Repo tip:** `cursor/supabase-app-integration-2188` @ `3fa66fa` (PR #3)  
+**Stand:** 2026-10-20  
+**Latest action:** APPLY ATTEMPT — **ABORTED at preflight** (no migrations applied)  
+**Repo tip:** `cursor/supabase-app-integration-2188` (PR #3)  
 **Production:** `nordlicht-handels` / `kicwytgtrdadrhhlfrnn`  
 **Review (comparison):** `nordlicht-security-review` / `tbxdoapspjhabcsxgllx`  
-**TrueFuel:** `ipblsxncnwyizdxudtrc` — **untouched**
+**TrueFuel:** `ipblsxncnwyizdxudtrc` — **untouched** (no writes)
 
 ---
 
-## Verdict
+## Apply attempt verdict (2026-10-20)
 
-**freigabefähig** — for an **empty** handels DB (verified), apply the six local migrations in order after **explicit human freigabe**.
+**All six migrations: NOT applied.** Preflight aborted before any `apply_migration`.
+
+| Gate | Result |
+|------|--------|
+| Explicit freigabe | **Yes** — apply six migrations to handels only |
+| Local files + SHA-256 vs §1 | **PASS** — all six match recorded checksums |
+| MCP `list_organizations` | **TrueFuel only** (`yvuqfeotfwnrgracozdy`) — Nordlicht org `iwolvmzjskpgzuiddewn` **not visible** |
+| MCP `list_projects` | **TrueFuel v0.1** (`ipblsxncnwyizdxudtrc`) only |
+| `get_project` `kicwytgtrdadrhhlfrnn` | **FAIL** — `MCP error -32600: You do not have permission to perform this action` |
+| `list_migrations` / catalog on handels | **not run** — no permission |
+| Any write to handels / review / TrueFuel | **No** |
+| Cloudflare / DNS / app / seed / test accounts | **No** |
+
+**Clear statement:** **0/6 succeeded.** Abort condition: wrong Supabase MCP account (TrueFuel org), cannot verify or write `nordlicht-handels`.
+
+**Unblock:** Reconnect Supabase MCP signed in as the account that owns org **Nordlicht** (`iwolvmzjskpgzuiddewn`) so `list_projects` includes `nordlicht-handels` / `kicwytgtrdadrhhlfrnn`. Optional fallback: `SUPABASE_ACCESS_TOKEN` for that org. Then re-run §8 apply from #1.
+
+### Per-migration results (this attempt)
+
+| # | Filename | History name | Result | Verified objects |
+|---|----------|--------------|--------|------------------|
+| 1 | `20261012120000_nordlicht_schema_v1.sql` | `nordlicht_schema_v1` | **NOT RUN** | — |
+| 2 | `20261012120100_nordlicht_rls_v1.sql` | `nordlicht_rls_v1` | **NOT RUN** | — |
+| 3 | `20261013140000_nordlicht_grants_v1.sql` | `nordlicht_grants_v1` | **NOT RUN** | — |
+| 4 | `20261013140100_nordlicht_booking_rpcs_v1.sql` | `nordlicht_booking_rpcs_v1` | **NOT RUN** | — |
+| 5 | `20261014100000_nordlicht_payment_idempotency_v1.sql` | `nordlicht_payment_idempotency_v1` | **NOT RUN** | — |
+| 6 | `20261014120000_nordlicht_app_rpcs_v1.sql` | `nordlicht_app_rpcs_v1` | **NOT RUN** | — |
+
+### Security checks (post-apply)
+
+**Not run** — no schema applied this session.
+
+### Remaining issues
+
+1. **Blocker:** Supabase MCP OAuth session lacks Nordlicht org access.
+2. handels production schema still at prior check baseline (empty / unverified this session).
+3. No production frontend cutover (out of scope).
+
+---
+
+## Prior check verdict (2026-10-15, READ-ONLY)
+
+**freigabefähig** — for an **empty** handels DB (verified then), apply the six local migrations in order after **explicit human freigabe**.
 
 | Gate | Result |
 |------|--------|
@@ -22,15 +64,15 @@
 | Review expected schema / RPCs / indexes / grants | **Match** (26/26 tables; booking + app RPCs; natural-key indexes; journal/payment DML revoked) |
 | Destructive risk on empty prod | **Low** (DDL + seed templates; no TRUNCATE/DELETE of user data) |
 | Collision risk (unique indexes) on empty prod | **None** (no rows) |
-| This check wrote to handels / TrueFuel | **No** |
+| That check wrote to handels / TrueFuel | **No** |
 
-**Not claimed:** migrations applied; production Pages pointing at handels; Auth Site URL configured on handels.
+**Not claimed then:** migrations applied; production Pages pointing at handels; Auth Site URL configured on handels.
 
 ---
 
 ## 1. Six migrations — filenames, order, dependencies
 
-Source of truth: `supabase/migrations/` on `3fa66fa`.
+Source of truth: `supabase/migrations/` on branch `cursor/supabase-app-integration-2188`.
 
 | # | Exact filename | SHA-256 | Depends on | Intent |
 |---|---------------|---------|------------|--------|
@@ -43,9 +85,11 @@ Source of truth: `supabase/migrations/` on `3fa66fa`.
 
 **Apply order is strict.** Do not skip, reorder, or apply only a subset. Do not use review’s remote history versions as filenames — remote versions differ; **local filenames** are the apply source.
 
+**2026-10-20 re-hash:** all six SHA-256 values above **confirmed identical** on tip of `cursor/supabase-app-integration-2188`.
+
 ---
 
-## 2. handels — migration history + schema state (READ-ONLY)
+## 2. handels — migration history + schema state (READ-ONLY, 2026-10-15)
 
 **Identity (MCP `get_project`):**
 
@@ -57,6 +101,7 @@ Source of truth: `supabase/migrations/` on `3fa66fa`.
 | region | `eu-central-1` |
 | Postgres | 17.11 |
 | API URL | `https://kicwytgtrdadrhhlfrnn.supabase.co` |
+| Organisation | Nordlicht (`iwolvmzjskpgzuiddewn`) |
 
 **History:** `list_migrations` → **empty array**.
 
@@ -75,6 +120,8 @@ Source of truth: `supabase/migrations/` on `3fa66fa`.
 | `pgcrypto` extension | present (platform default; **not** evidence of Nordlicht schema) |
 | Security advisors | `[]` (empty project) |
 
+**2026-10-20:** Could **not** re-verify this section — MCP permission denied on handels.
+
 ---
 
 ## 3. Compare expected vs handels vs review
@@ -92,8 +139,8 @@ Source of truth: `supabase/migrations/` on `3fa66fa`.
 
 ### handels today vs expected
 
-| Area | Expected | handels | Gap |
-|------|----------|---------|-----|
+| Area | Expected | handels (last verified 2026-10-15) | Gap |
+|------|----------|-------------------------------------|-----|
 | Tables | 26 | 0 | **full gap** — apply #1 |
 | RLS / policies | enabled + policies | none | apply #2 |
 | Grants | least privilege | n/a | apply #3 then #4 revoke |
@@ -101,7 +148,7 @@ Source of truth: `supabase/migrations/` on `3fa66fa`.
 | Payment unique indexes | 2 | none | apply #5 |
 | App RPCs | 2 | none | apply #6 |
 
-### review vs expected (read-only comparison)
+### review vs expected (read-only comparison, prior)
 
 | Check | Result |
 |-------|--------|
@@ -127,14 +174,14 @@ Source of truth: `supabase/migrations/` on `3fa66fa`.
 
 ## 4. Partial / full prior apply detection
 
-| Signal | handels | Interpretation |
-|--------|---------|----------------|
+| Signal | handels (2026-10-15) | Interpretation |
+|--------|----------------------|----------------|
 | Migration history count | 0 | No recorded apply |
 | Public objects | 0 | No silent DDL |
 | Auth profile trigger | absent | Schema #1 never applied |
 | Migrations schema | absent | No Supabase migration tracking yet |
 
-**Conclusion:** No partial or full prior Nordlicht apply on handels. Safe to treat as greenfield.
+**Conclusion (as of last successful peek):** No partial or full prior Nordlicht apply on handels. Safe to treat as greenfield **once access is restored**.
 
 **Review history note (do not copy to handels as-is):**
 
@@ -148,14 +195,14 @@ Source of truth: `supabase/migrations/` on `3fa66fa`.
 | `20261014085142` | `nordlicht_payment_idempotency_v1` |
 | `20261014094746` | `nordlicht_app_rpcs_v1` |
 
-On handels, apply the **six local files once**. Do **not** invent a seventh `_complete` migration — local `…_booking_rpcs_v1.sql` already contains the complete bodies.
+On handels, apply the **six local files once**. Do **not** invent a seventh `_complete` migration — local `…_booking_rpcs_v1.sql` already contains the complete bodies. Only if MCP payload forces chunking: document an honest `_complete` marker — do not invent it preemptively.
 
 ---
 
 ## 5. Risk per migration (empty vs non-empty prod)
 
-| # | File | Empty handels (current) | If non-empty prod later |
-|---|------|-------------------------|-------------------------|
+| # | File | Empty handels (last known) | If non-empty prod later |
+|---|------|----------------------------|-------------------------|
 | 1 | schema_v1 | **Low** — CREATE + seed templates; `ON DELETE CASCADE` only on FKs | **High** — `CREATE TABLE` fails if names exist; would need drift plan |
 | 2 | rls_v1 | **Low** — policies/helpers | **Medium** — `CREATE POLICY` conflicts if partial RLS exists |
 | 3 | grants_v1 | **Low** — REVOKE/GRANT | **Medium** — broad revoke can break unexpected clients mid-flight |
@@ -196,21 +243,19 @@ On handels, apply the **six local files once**. Do **not** invent a seventh `_co
 
 ## 7. Collision risk with existing prod data
 
-| Object | handels now | Risk |
-|--------|-------------|------|
+| Object | handels (last known) | Risk |
+|--------|----------------------|------|
 | Unique document numbers / org slugs / SKUs | no rows | **none** |
 | Payment natural-key indexes | no payment rows | **none** |
 | `account_templates` PK seed | empty table after CREATE | **none** (insert of catalog) |
 | `auth.users` ↔ `profiles` trigger | 0 users | **none** |
 | Future import of external data before #5 | n/a | If data loaded between #4 and #5 with duplicate natural keys, #5 **fails** — abort and clean |
 
-**Unknowns:** none material for current empty state. Auth Site URL / email templates / custom roles outside these migrations were **not** audited as blockers for DDL freigabe.
+**Unknowns:** none material for last-known empty state. Auth Site URL / email templates / custom roles outside these migrations were **not** audited as blockers for DDL freigabe.
 
 ---
 
 ## 8. Post-freigabe apply procedure (reproducible)
-
-**Do not run until Miguel explicitly freigibt handels apply.**
 
 ### Preflight (every session)
 
@@ -222,6 +267,7 @@ On handels, apply the **six local files once**. Do **not** invent a seventh `_co
 3. `list_migrations` → expect `[]` (or exactly the prefix already applied if resuming — see abort rules).
 4. Catalog SELECT: expect 0 public tables **before #1**. If any Nordlicht table/function exists without history → **ABORT** (drift).
 5. Confirm git tip contains the six files + SHA-256s above (or re-hash and record).
+6. Confirm MCP session can see org Nordlicht — if only TrueFuel → **ABORT** (this attempt).
 
 ### Apply (one migration at a time)
 
@@ -255,6 +301,7 @@ For each file `#1` → `#6`:
 ### Abort conditions
 
 - Wrong project ref/name
+- MCP session lacks Nordlicht org / handels access
 - Non-empty public schema before #1
 - History/object mismatch vs step expectations
 - Unique-index build failure (#5)
@@ -262,34 +309,29 @@ For each file `#1` → `#6`:
 
 ---
 
-## 9. Local static checks (this run)
+## 9. Local static checks
 
 | Command | Result |
 |---------|--------|
-| Migration file presence / order | **6/6** on tip `3fa66fa` |
-| SHA-256 recorded | yes (§1) |
-| `npm ci` | OK |
-| `npm test` | **69/69** passed (20 files) |
-| `npm run typecheck` | **pass** |
-| `npm run lint` | **pass** (pre-existing react warnings only; no errors) |
-| Remote apply | **not run** (by design) |
-| handels `list_migrations` after check | still `[]` (untouched) |
+| Migration file presence / order | **6/6** |
+| SHA-256 (2026-10-20) | **match §1** |
+| Remote apply (2026-10-20) | **ABORTED** — MCP no Nordlicht access |
+| handels writes | **none** |
+| TrueFuel / review writes | **none** |
 
 ---
 
 ## 10. Recommendation + next user action
 
-**Recommendation:** Approve handels **migration apply freigabe** for the six files in §1 on empty `kicwytgtrdadrhhlfrnn`, using the procedure in §8. Keep Preview on review until a separate production frontend freigabe.
+**Recommendation:** Re-authenticate Supabase MCP as the Nordlicht org owner, then resume apply from §8 starting at #1 (re-run full preflight).
 
-**Exact next user action:** Reply with explicit approval, e.g.  
-`Freigabe: apply the six Nordlicht migrations to nordlicht-handels (kicwytgtrdadrhhlfrnn) only.`  
-Until then: **no** `apply_migration`, **no** production Pages cutover.
+**Exact next user action:** Connect Supabase MCP with the account that owns `nordlicht-handels` (`kicwytgtrdadrhhlfrnn` / org `iwolvmzjskpgzuiddewn`), then reply to resume apply.
 
 ---
 
-## 11. Safety confirmation
+## 11. Safety confirmation (2026-10-20 apply attempt)
 
-- **handels** (`kicwytgtrdadrhhlfrnn`): READ-ONLY this check — `get_project`, `list_migrations`, `list_tables`, SELECT catalog SQL, `get_advisors`, `get_project_url` only. **No** `apply_migration`, **no** writing SQL, **no** config/data/user changes.
-- **TrueFuel** (`ipblsxncnwyizdxudtrc`): untouched.
-- **Review** (`tbxdoapspjhabcsxgllx`): read-only comparison only.
-- **No** production deploy.
+- **handels** (`kicwytgtrdadrhhlfrnn`): **no writes** — `get_project` / `list_migrations` / catalog / `apply_migration` all failed permission or were not reached.
+- **TrueFuel** (`ipblsxncnwyizdxudtrc`): **untouched** (listed only; no SQL / migration / pause).
+- **Review** (`tbxdoapspjhabcsxgllx`): **untouched**.
+- **No** production deploy, Cloudflare/DNS, seed data, or test accounts.
