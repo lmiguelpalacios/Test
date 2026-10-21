@@ -36,8 +36,6 @@ import {
   VendorPaymentsPage,
 } from './pages/EinkaufPage'
 import { EinstellungenPage } from './pages/EinstellungenPage'
-import { KontaktePage } from './pages/KontaktePage'
-import { LagerPage } from './pages/LagerPage'
 import {
   LernmodusLayout,
   LernmodusOverviewPage,
@@ -97,8 +95,6 @@ export default function App() {
                       <Route path="lieferanten" element={<SuppliersPage />} />
                       <Route path="produkte" element={<PurchaseProductsPage />} />
                     </Route>
-                    <Route path="lager" element={<LagerPage />} />
-                    <Route path="kontakte" element={<KontaktePage />} />
                     <Route path="berichte" element={<BerichteLayout />}>
                       <Route index element={<BerichteOverviewPage />} />
                       <Route path="susa" element={<TrialBalancePage />} />

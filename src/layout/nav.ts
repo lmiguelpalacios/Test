@@ -3,11 +3,9 @@ import {
   BookOpen,
   GraduationCap,
   LayoutDashboard,
-  Package,
   Settings,
   ShoppingBag,
   ShoppingCart,
-  Users,
   type LucideIcon,
 } from 'lucide-react'
 import type { NavItemId } from '../types'
@@ -24,8 +22,6 @@ export const navItems: NavItem[] = [
   { id: 'buchhaltung', label: 'Buchhaltung', path: '/buchhaltung', icon: BookOpen },
   { id: 'verkauf', label: 'Verkauf', path: '/verkauf', icon: ShoppingBag },
   { id: 'einkauf', label: 'Einkauf', path: '/einkauf', icon: ShoppingCart },
-  { id: 'lager', label: 'Lager', path: '/lager', icon: Package },
-  { id: 'kontakte', label: 'Kontakte', path: '/kontakte', icon: Users },
   { id: 'berichte', label: 'Berichte', path: '/berichte', icon: BarChart3 },
   { id: 'lernmodus', label: 'Lernmodus', path: '/lernmodus', icon: GraduationCap },
   {
