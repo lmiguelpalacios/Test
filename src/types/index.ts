@@ -3,8 +3,6 @@ export type NavItemId =
   | 'buchhaltung'
   | 'verkauf'
   | 'einkauf'
-  | 'lager'
-  | 'kontakte'
   | 'berichte'
   | 'lernmodus'
   | 'einstellungen'
