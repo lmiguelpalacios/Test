@@ -67,8 +67,6 @@ supabase/       # Stub — nicht angebunden
 | Buchhaltung    | Übersicht, Kontenplan, Buchungserfassung    |
 | Verkauf        | Kunden, Produkte, Rechnungen, Zahlungen     |
 | Einkauf        | Lieferanten, Bestellungen, WE, ER, Zahlungen|
-| Lager          | Verweis auf Produkte/Bestände im Einkauf    |
-| Kontakte       | Platzhalter                                 |
 | Berichte       | SuSa, Kontenblatt, GuV, Bilanz, offene Posten|
 | Lernmodus      | Aufgaben, Bewertung, Fortschritt (lokal)    |
 | Einstellungen  | Platzhalter                                 |
