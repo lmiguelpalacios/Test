@@ -1,4 +1,25 @@
+import {
+  balanceSheetSolutionDraft,
+  evaluateBalanceSheet,
+} from '../abschluss/evaluateBalanceSheet'
+import { evaluateTAccounts } from '../abschluss/evaluateTAccounts'
+import { expectedTAccountsAsDraft } from '../abschluss/expectedBalances'
 import type { LearningState, LearningTask } from '../types/learning'
+import { abschlussFixtureJournal } from './abschluss-learning-fixtures'
+
+const FIXTURE_AS_OF = '2026-10-02'
+
+const fixtureTAccountsMaxPoints = evaluateTAccounts(
+  abschlussFixtureJournal,
+  FIXTURE_AS_OF,
+  expectedTAccountsAsDraft(abschlussFixtureJournal, FIXTURE_AS_OF),
+).maxPoints
+
+const fixtureBilanzMaxPoints = evaluateBalanceSheet(
+  abschlussFixtureJournal,
+  FIXTURE_AS_OF,
+  balanceSheetSolutionDraft(abschlussFixtureJournal, FIXTURE_AS_OF),
+).maxPoints
 
 /**
  * Demo-Lernaufgaben für Nordlicht Handels GmbH.
@@ -11,6 +32,7 @@ export const learningTasks: LearningTask[] = [
     title: 'Aktiv oder Passiv? Banküberweisung eingehend',
     topic: 'aktiv_passiv',
     difficulty: 'leicht',
+    kind: 'booking',
     scenario:
       'Ein Kunde überweist 500,00 € netto ohne USt auf das Bankkonto der Nordlicht Handels GmbH als Anzahlung auf eine spätere Lieferung. Buche den Zahlungseingang gegen Verbindlichkeiten (erhaltene Anzahlungen vereinfacht über 1600).',
     solution: {
@@ -34,6 +56,7 @@ export const learningTasks: LearningTask[] = [
     title: 'Soll und Haben bei Aufwand',
     topic: 'soll_haben',
     difficulty: 'leicht',
+    kind: 'booking',
     scenario:
       'Nordlicht zahlt Büromiete 1.200,00 € netto zuzüglich 19 % USt per Bank. Welches Konto gehört ins Soll, welches ins Haben?',
     solution: {
@@ -57,6 +80,7 @@ export const learningTasks: LearningTask[] = [
     title: 'Einfacher Geschäftsvorfall: Barkauf Bürobedarf',
     topic: 'geschaeftsvorfall',
     difficulty: 'leicht',
+    kind: 'booking',
     scenario:
       'Barzahlung für Bürobedarf: 80,00 € netto + 19 % USt aus der Kasse.',
     solution: {
@@ -80,6 +104,7 @@ export const learningTasks: LearningTask[] = [
     title: 'Wareneinkauf auf Rechnung',
     topic: 'wareneinkauf',
     difficulty: 'mittel',
+    kind: 'booking',
     scenario:
       'Wareneinkauf bei Ostsee Papier & Pack: 1.000,00 € netto, 19 % Vorsteuer, Zahlung später (Verbindlichkeiten).',
     solution: {
@@ -104,6 +129,7 @@ export const learningTasks: LearningTask[] = [
     title: 'Zahlung einer Lieferantenrechnung',
     topic: 'zahlung_lieferant',
     difficulty: 'mittel',
+    kind: 'booking',
     scenario:
       'Begleichung einer bereits gebuchten Eingangsrechnung: 1.190,00 € brutto (entspricht 1.000 € netto + 19 %) per Bank. Keine erneute Aufwandbuchung.',
     solution: {
@@ -128,6 +154,7 @@ export const learningTasks: LearningTask[] = [
     title: 'Warenverkauf auf Rechnung',
     topic: 'warenverkauf',
     difficulty: 'mittel',
+    kind: 'booking',
     scenario:
       'Ausgangsrechnung an Küstenküche AG: 2.000,00 € netto Erlöse 19 %, Forderung entsteht.',
     solution: {
@@ -152,6 +179,7 @@ export const learningTasks: LearningTask[] = [
     title: 'Zahlungseingang vom Kunden',
     topic: 'zahlung_kunde',
     difficulty: 'mittel',
+    kind: 'booking',
     scenario:
       'Kunde überweist 2.380,00 € brutto auf die Bank zur Begleichung einer gebuchten Ausgangsrechnung (2.000 € + 19 %).',
     solution: {
@@ -175,6 +203,7 @@ export const learningTasks: LearningTask[] = [
     title: 'Vorsteuer bei Einkauf 7 %',
     topic: 'ust_vst',
     difficulty: 'mittel',
+    kind: 'booking',
     scenario:
       'Einkauf Bio-Gewürze: 500,00 € netto zum ermäßigten Satz 7 %, auf Rechnung (Verbindlichkeiten).',
     solution: {
@@ -199,6 +228,7 @@ export const learningTasks: LearningTask[] = [
     title: 'Umsatzsteuer bei Verkauf 7 %',
     topic: 'ust_vst',
     difficulty: 'mittel',
+    kind: 'booking',
     scenario:
       'Verkauf ermäßigt besteuerter Ware: 300,00 € netto, 7 % USt, auf Ziel (Forderung).',
     solution: {
@@ -223,6 +253,7 @@ export const learningTasks: LearningTask[] = [
     title: 'Wirkung auf GuV: Fahrzeugkosten',
     topic: 'bilanz_guv',
     difficulty: 'schwer',
+    kind: 'booking',
     scenario:
       'Sofortzahlung Fahrzeugkosten 250,00 € netto + 19 % USt per Bank. Welche Buchung erfasst den Aufwand korrekt?',
     solution: {
@@ -247,6 +278,7 @@ export const learningTasks: LearningTask[] = [
     title: 'Aktivtausch ohne GuV-Wirkung',
     topic: 'bilanz_guv',
     difficulty: 'schwer',
+    kind: 'booking',
     scenario:
       'Privatdarlehen wird ausgezahlt: 5.000,00 € gehen auf das Bankkonto (Passivzuwachs und Aktivzuwachs). Ohne USt.',
     solution: {
@@ -271,6 +303,7 @@ export const learningTasks: LearningTask[] = [
     title: 'Reparatur auf Rechnung',
     topic: 'geschaeftsvorfall',
     difficulty: 'leicht',
+    kind: 'booking',
     scenario:
       'Reparatur Werkstatt: 150,00 € netto + 19 % USt, Rechnung noch offen.',
     solution: {
@@ -288,6 +321,48 @@ export const learningTasks: LearningTask[] = [
     },
     maxPoints: 4,
     allowPracticeJournalPost: true,
+  },
+  {
+    id: 'lt-13',
+    number: 13,
+    title: 'T-Konten aus Mini-Journal',
+    topic: 'bilanz_guv',
+    difficulty: 'mittel',
+    kind: 't_accounts',
+    scenario:
+      'Im Übungsjournal stehen zwei Buchungen: Warenverkauf 1.000,00 € netto + 19 % USt auf Ziel (Forderungen an Erlöse) und Büromiete 500,00 € netto + 19 % USt per Bank. Stelle die T-Konten mit Endsaldo auf der richtigen Seite auf (nur Konten mit Saldo ≠ 0).',
+    explanation:
+      'Aus den Journalzeilen ergeben sich Salden für Forderungen, Erlöse, USt, Miete, Vorsteuer und Bank. Aktiv-/Aufwandssalden typischerweise Soll, Passiv-/Ertragssalden Haben — Betrag = |Soll − Haben|.',
+    effects: {
+      assets: 'Forderungen und Vorsteuer steigen; Bank sinkt',
+      liabilities: 'Umsatzsteuer steigt',
+      result: 'Erlöse und Miete wirken auf das Periodenergebnis',
+    },
+    maxPoints: fixtureTAccountsMaxPoints,
+    allowPracticeJournalPost: false,
+    fixtureEntries: abschlussFixtureJournal,
+    asOf: FIXTURE_AS_OF,
+  },
+  {
+    id: 'lt-14',
+    number: 14,
+    title: 'Bilanz zum Stichtag (Mini-Journal)',
+    topic: 'bilanz_guv',
+    difficulty: 'mittel',
+    kind: 'bilanz',
+    scenario:
+      'Dasselbe Mini-Journal wie bei den T-Konten. Erstelle die Bilanz zum 02.10.2026: Aktivzeilen, Passivzeilen, Periodenergebnis und Summen. Keine Nullkonten — Extra-Zeilen zählen als Fehler.',
+    explanation:
+      'Die Bilanz zeigt Bestandskonten-Salden bis Stichtag. Das Periodenergebnis kommt aus der GuV (Erträge − Aufwendungen) und schließt die Passivseite ohne GuV-Abschlussbuchung.',
+    effects: {
+      assets: 'Forderungen, Vorsteuer; Bank negativ bzw. geringer',
+      liabilities: 'Umsatzsteuer',
+      result: 'Periodenergebnis = Erlöse − Miete (netto-Wirkung über GuV)',
+    },
+    maxPoints: fixtureBilanzMaxPoints,
+    allowPracticeJournalPost: false,
+    fixtureEntries: abschlussFixtureJournal,
+    asOf: FIXTURE_AS_OF,
   },
 ]
 

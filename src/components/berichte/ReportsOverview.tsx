@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import {
   BookOpen,
   FileSpreadsheet,
+  GraduationCap,
   Scale,
   ScrollText,
   WalletCards,
@@ -49,6 +50,10 @@ export function ReportsOverview() {
           <Link to="/berichte/offen" className="btn btn-secondary">
             <WalletCards size={16} aria-hidden />
             Offene Posten
+          </Link>
+          <Link to="/berichte/abschluss" className="btn btn-primary">
+            <GraduationCap size={16} aria-hidden />
+            Abschluss üben
           </Link>
         </div>
       </section>

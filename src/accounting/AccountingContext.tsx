@@ -14,8 +14,8 @@ import type {
   ValidationIssue,
 } from '../types/accounting'
 import type {
-  LearningAnswer,
   LearningState,
+  LearningSubmission,
   TaskProgress,
 } from '../types/learning'
 import type {
@@ -151,7 +151,7 @@ interface AccountingContextValue {
   /** Prüft Antwort — schreibt kein Journal. */
   submitLearningAnswer: (
     taskId: string,
-    answer: LearningAnswer,
+    submission: LearningSubmission,
   ) => Promise<ActionResult & { evaluation?: EvaluationResult }>
   /** Markiert Aufgabe abgeschlossen (nach Bewertung). */
   completeLearningTask: (taskId: string) => Promise<ActionResult>
@@ -383,11 +383,11 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
   const submitLearningAnswer = useCallback(
     async (
       taskId: string,
-      answer: LearningAnswer,
+      submission: LearningSubmission,
     ): Promise<ActionResult & { evaluation?: EvaluationResult }> => {
       const task = getLearningTaskById(taskId)
       if (!task) return { ok: false, message: 'Lernaufgabe nicht gefunden.' }
-      const evaluation = evaluateLearningAnswer(task, answer)
+      const evaluation = evaluateLearningAnswer(task, submission)
       const now = new Date().toISOString()
       let nextState: LearningState | undefined
       setLearning((prev) => {
@@ -462,7 +462,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
       }
       const task = getLearningTaskById(taskId)
       if (!task) return { ok: false, message: 'Lernaufgabe nicht gefunden.' }
-      if (!task.allowPracticeJournalPost) {
+      if (task.kind !== 'booking' || !task.allowPracticeJournalPost) {
         return {
           ok: false,
           message: 'Diese Aufgabe erlaubt keine Übungsbuchung ins Journal.',

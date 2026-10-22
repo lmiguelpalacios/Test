@@ -6,6 +6,7 @@ import { AuthGate } from './components/auth/AuthGate'
 import { AppLayout } from './layout/AppLayout'
 import { DataBackendProvider } from './persistence/DataBackendContext'
 import {
+  AbschlussPage,
   AccountLedgerPage,
   BalanceSheetPage,
   BerichteLayout,
@@ -106,6 +107,7 @@ export default function App() {
                       <Route path="guv" element={<IncomeStatementPage />} />
                       <Route path="bilanz" element={<BalanceSheetPage />} />
                       <Route path="offen" element={<OpenItemsPage />} />
+                      <Route path="abschluss" element={<AbschlussPage />} />
                     </Route>
                     <Route path="lernmodus" element={<LernmodusLayout />}>
                       <Route index element={<LernmodusOverviewPage />} />

@@ -1,16 +1,68 @@
 import type {
+  AbschlussEvaluationResult,
+} from '../abschluss/types'
+import { evaluateBalanceSheet } from '../abschluss/evaluateBalanceSheet'
+import { evaluateIncomeStatement } from '../abschluss/evaluateIncomeStatement'
+import { evaluateTAccounts } from '../abschluss/evaluateTAccounts'
+import { getAccountMap } from '../data/chart-of-accounts'
+import type {
+  BookingLearningTask,
   EvaluationResult,
   LearningAnswer,
+  LearningSubmission,
   LearningTask,
 } from '../types/learning'
-import { getAccountMap } from '../data/chart-of-accounts'
 
 /**
- * Bewertet eine Lernantwort gegen die Musterlösung.
+ * Bewertet eine Lernantwort gegen die Musterlösung bzw. die Abschluss-Evaluatoren.
  * Nutzt denselben Kontenplan wie die echte Buchhaltung — ohne Journalbuchung.
  */
 export function evaluateLearningAnswer(
   task: LearningTask,
+  submission: LearningSubmission,
+): EvaluationResult {
+  if (task.kind === 'booking') {
+    if (submission.kind !== 'booking') {
+      return mismatchResult(task.maxPoints, 'Buchungsantwort erwartet.')
+    }
+    return evaluateBookingAnswer(task, submission.answer)
+  }
+
+  if (task.kind === 't_accounts') {
+    if (submission.kind !== 't_accounts') {
+      return mismatchResult(task.maxPoints, 'T-Konten-Entwurf erwartet.')
+    }
+    return toEvaluationResult(
+      evaluateTAccounts(task.fixtureEntries, task.asOf, submission.draft),
+      task.maxPoints,
+    )
+  }
+
+  if (task.kind === 'bilanz') {
+    if (submission.kind !== 'bilanz') {
+      return mismatchResult(task.maxPoints, 'Bilanz-Entwurf erwartet.')
+    }
+    return toEvaluationResult(
+      evaluateBalanceSheet(task.fixtureEntries, task.asOf, submission.draft),
+      task.maxPoints,
+    )
+  }
+
+  if (submission.kind !== 'guv') {
+    return mismatchResult(task.maxPoints, 'GuV-Entwurf erwartet.')
+  }
+  return toEvaluationResult(
+    evaluateIncomeStatement(
+      task.fixtureEntries,
+      task.range,
+      submission.draft,
+    ),
+    task.maxPoints,
+  )
+}
+
+function evaluateBookingAnswer(
+  task: BookingLearningTask,
   answer: LearningAnswer,
 ): EvaluationResult {
   const map = getAccountMap()
@@ -20,7 +72,7 @@ export function evaluateLearningAnswer(
   const debitOk = answer.debitAccount === solution.debitAccount
   const debitAccount = map.get(answer.debitAccount)
   criteria.push({
-    id: 'debit' as const,
+    id: 'debit',
     label: 'Sollkonto',
     ok: debitOk,
     points: debitOk ? 1 : 0,
@@ -39,7 +91,7 @@ export function evaluateLearningAnswer(
   const creditOk = answer.creditAccount === solution.creditAccount
   const creditAccount = map.get(answer.creditAccount)
   criteria.push({
-    id: 'credit' as const,
+    id: 'credit',
     label: 'Habenkonto',
     ok: creditOk,
     points: creditOk ? 1 : 0,
@@ -57,7 +109,7 @@ export function evaluateLearningAnswer(
 
   const amountOk = answer.netAmountCents === solution.netAmountCents
   criteria.push({
-    id: 'amount' as const,
+    id: 'amount',
     label: 'Nettobetrag',
     ok: amountOk,
     points: amountOk ? 1 : 0,
@@ -69,7 +121,7 @@ export function evaluateLearningAnswer(
 
   const vatOk = answer.vatRate === solution.vatRate
   criteria.push({
-    id: 'vat' as const,
+    id: 'vat',
     label: 'USt-Satz',
     ok: vatOk,
     points: vatOk ? 1 : 0,
@@ -95,6 +147,38 @@ export function evaluateLearningAnswer(
   }
 
   return { score, maxPoints, fullyCorrect, criteria, summary }
+}
+
+function toEvaluationResult(
+  result: AbschlussEvaluationResult,
+  _taskMaxPoints: number,
+): EvaluationResult {
+  return {
+    score: result.score,
+    maxPoints: result.maxPoints,
+    fullyCorrect: result.fullyCorrect,
+    criteria: result.criteria,
+    summary: result.summary,
+  }
+}
+
+function mismatchResult(maxPoints: number, message: string): EvaluationResult {
+  return {
+    score: 0,
+    maxPoints,
+    fullyCorrect: false,
+    criteria: [
+      {
+        id: 'kind',
+        label: 'Aufgabentyp',
+        ok: false,
+        points: 0,
+        maxPoints: 1,
+        feedback: message,
+      },
+    ],
+    summary: message,
+  }
 }
 
 function buildAccountHint(
@@ -138,7 +222,7 @@ function vatFeedback(given: number, expected: number): string {
 }
 
 /** Baut den Journal-Entwurf aus der Musterlösung (nur nach Bestätigung nutzbar). */
-export function solutionToPracticeDraft(task: LearningTask) {
+export function solutionToPracticeDraft(task: BookingLearningTask) {
   return {
     date: '2026-10-12',
     documentNumber: `LERN-${String(task.number).padStart(3, '0')}`,

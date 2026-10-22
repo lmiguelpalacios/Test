@@ -5,6 +5,7 @@ import { useAccounting } from '../../accounting/AccountingContext'
 import { learningTasks } from '../../data/learning-tasks'
 import {
   LEARNING_DIFFICULTY_LABELS,
+  LEARNING_KIND_LABELS,
   LEARNING_TOPIC_LABELS,
   type LearningDifficulty,
   type LearningTopic,
@@ -125,6 +126,7 @@ export function LearningOverview() {
               <tr>
                 <th>Nr.</th>
                 <th>Aufgabe</th>
+                <th>Art</th>
                 <th>Thema</th>
                 <th>Stufe</th>
                 <th>Status</th>
@@ -140,6 +142,7 @@ export function LearningOverview() {
                       {task.title}
                     </Link>
                   </td>
+                  <td>{LEARNING_KIND_LABELS[task.kind]}</td>
                   <td>{LEARNING_TOPIC_LABELS[task.topic]}</td>
                   <td>{LEARNING_DIFFICULTY_LABELS[task.difficulty]}</td>
                   <td>

@@ -1311,3 +1311,143 @@ button.text-link {
   margin: 0.75rem 0;
   font-size: 0.9rem;
 }
+
+/* —— Abschluss-Studio / T-Konten —— */
+
+.abschluss-stepper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.t-account-board {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.t-account-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.t-account {
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.t-account-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  background: var(--bg-muted);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.88rem;
+}
+
+.t-account-remove {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+.t-account-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 5.5rem;
+}
+
+.t-account-side {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border-strong);
+}
+
+.t-account-side:last-child {
+  border-right: none;
+}
+
+.t-account-side-label {
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.35rem;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.t-account-cell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.t-account-cell.is-active {
+  background: var(--success-soft, #eefbf3);
+}
+
+.t-account-side-toggle {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+}
+
+.t-account-placeholder {
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.t-account-footer {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+}
+
+.cents-input {
+  width: 100%;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  padding: 0.4rem 0.5rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  background: #fff;
+  color: var(--text);
+}
+
+.abschluss-section {
+  margin-bottom: 1rem;
+}
+
+.abschluss-section .form-field {
+  margin-bottom: 0.65rem;
+}
+
+.abschluss-totals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.85rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.abschluss-total-row {
+  margin-top: 0.75rem;
+}
