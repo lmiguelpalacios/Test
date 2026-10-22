@@ -6,6 +6,7 @@ import { ModeBadge } from '../components/ModeBadge'
 import { WorkspaceImportWizard } from '../components/import/WorkspaceImportWizard'
 import { PageHeader } from '../components/PageHeader'
 import { useAccounting } from '../accounting/AccountingContext'
+import { VAT_DISABLED_NOTE } from '../accounting/vat'
 import { isSupabaseConfigured } from '../supabase/env'
 
 export function EinstellungenPage() {
@@ -16,8 +17,12 @@ export function EinstellungenPage() {
     activeMembership,
     setActiveOrganizationId,
   } = useOrg()
-  const { capabilities, persistSource, backendBusy, reloadFromBackend } = useAccounting()
+  const { capabilities, persistSource, backendBusy, reloadFromBackend, vatEnabled, setVatEnabled } =
+    useAccounting()
   const [reloadMessage, setReloadMessage] = useState<string | undefined>()
+  const [vatMessage, setVatMessage] = useState<string | undefined>()
+  const [vatBusy, setVatBusy] = useState(false)
+  const canEditVat = mode === 'local' || activeMembership?.role === 'owner'
 
   return (
     <div className="page-stack">
@@ -41,7 +46,7 @@ export function EinstellungenPage() {
         <dl className="settings-dl">
           <div>
             <dt>Aktiv</dt>
-            <dd>{mode === 'local' ? 'Lokal (Demo / localStorage v4)' : 'Supabase'}</dd>
+            <dd>{mode === 'local' ? 'Lokal (Demo / localStorage v5)' : 'Supabase'}</dd>
           </div>
           <div>
             <dt>Env konfiguriert</dt>
@@ -109,6 +114,42 @@ export function EinstellungenPage() {
           {reloadMessage ? <p className="auth-info">{reloadMessage}</p> : null}
         </section>
       ) : null}
+
+      <section className="panel">
+        <h2 className="panel-title">Umsatzsteuer</h2>
+        <label className="vat-toggle">
+          <input
+            type="checkbox"
+            checked={vatEnabled}
+            disabled={!canEditVat || vatBusy}
+            onChange={(event) => {
+              const next = event.target.checked
+              setVatMessage(undefined)
+              setVatBusy(true)
+              void setVatEnabled(next).then((result) => {
+                setVatBusy(false)
+                setVatMessage(
+                  result.ok
+                    ? next
+                      ? 'Umsatzsteuer ist an. Neue Buchungen verwenden 0 %, 7 % oder 19 %.'
+                      : 'Umsatzsteuer ist aus.'
+                    : result.message,
+                )
+              })
+            }}
+          />
+          <span>Umsatzsteuer</span>
+        </label>
+        <p className="panel-meta">
+          {vatEnabled
+            ? 'Neue Buchungen in Verkauf, Einkauf, Produktstamm, manuellem Journal und Lernmodus erfassen 0 %, 7 % oder 19 %.'
+            : VAT_DISABLED_NOTE}
+        </p>
+        {!canEditVat ? (
+          <p className="panel-meta">Nur Inhaber können die Umsatzsteuer umschalten.</p>
+        ) : null}
+        {vatMessage ? <p className="auth-info">{vatMessage}</p> : null}
+      </section>
 
       <section className="panel">
         <h2 className="panel-title">Modul-Fähigkeiten</h2>

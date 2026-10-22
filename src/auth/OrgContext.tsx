@@ -23,6 +23,9 @@ interface OrgContextValue {
     name: string,
     slug: string,
   ) => Promise<{ ok: true; organizationId: string } | { ok: false; message: string }>
+  setVatEnabled: (
+    enabled: boolean,
+  ) => Promise<{ ok: true } | { ok: false; message: string }>
   refresh: () => Promise<void>
 }
 
@@ -65,7 +68,7 @@ export function OrgProvider({ children }: { children: ReactNode }) {
     const { data, error } = await client
       .from('organization_members')
       .select(
-        'organization_id, role, organizations ( id, name, slug )',
+        'organization_id, role, organizations ( id, name, slug, vat_enabled )',
       )
       .eq('user_id', user.id)
 
@@ -77,8 +80,8 @@ export function OrgProvider({ children }: { children: ReactNode }) {
 
     const mapped: OrgMembership[] = (data ?? []).flatMap((row) => {
       const org = row.organizations as
-        | { id: string; name: string; slug: string }
-        | { id: string; name: string; slug: string }[]
+        | { id: string; name: string; slug: string; vat_enabled?: boolean | null }
+        | { id: string; name: string; slug: string; vat_enabled?: boolean | null }[]
         | null
       const orgRow = Array.isArray(org) ? org[0] : org
       if (!orgRow) return []
@@ -89,6 +92,7 @@ export function OrgProvider({ children }: { children: ReactNode }) {
           organizationName: orgRow.name,
           organizationSlug: orgRow.slug,
           role,
+          vatEnabled: orgRow.vat_enabled !== false,
         },
       ]
     })
@@ -136,6 +140,44 @@ export function OrgProvider({ children }: { children: ReactNode }) {
     [client, refresh],
   )
 
+  const setVatEnabled = useCallback(
+    async (enabled: boolean) => {
+      if (!client || !activeOrganizationId) {
+        return { ok: false as const, message: 'Keine aktive Organisation.' }
+      }
+      const membership = memberships.find(
+        (item) => item.organizationId === activeOrganizationId,
+      )
+      if (!membership || membership.role !== 'owner') {
+        return {
+          ok: false as const,
+          message: 'Nur Inhaber können die Umsatzsteuer umschalten.',
+        }
+      }
+      const { data, error } = await client
+        .from('organizations')
+        .update({ vat_enabled: enabled })
+        .eq('id', activeOrganizationId)
+        .select('id')
+      if (error) return { ok: false as const, message: error.message }
+      if (!data?.length) {
+        return {
+          ok: false as const,
+          message: 'Umsatzsteuer konnte nicht gespeichert werden.',
+        }
+      }
+      setMemberships((prev) =>
+        prev.map((item) =>
+          item.organizationId === activeOrganizationId
+            ? { ...item, vatEnabled: enabled }
+            : item,
+        ),
+      )
+      return { ok: true as const }
+    },
+    [client, activeOrganizationId, memberships],
+  )
+
   const activeMembership =
     memberships.find((item) => item.organizationId === activeOrganizationId) ?? null
 
@@ -147,6 +189,7 @@ export function OrgProvider({ children }: { children: ReactNode }) {
       activeMembership,
       setActiveOrganizationId,
       createOrganization,
+      setVatEnabled,
       refresh,
     }),
     [
@@ -156,6 +199,7 @@ export function OrgProvider({ children }: { children: ReactNode }) {
       activeMembership,
       setActiveOrganizationId,
       createOrganization,
+      setVatEnabled,
       refresh,
     ],
   )

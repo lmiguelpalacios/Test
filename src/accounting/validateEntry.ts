@@ -4,10 +4,19 @@ import type {
   JournalLine,
   ValidationIssue,
   ValidationResult,
+  VatRate,
 } from '../types/accounting'
 import { explainBooking } from './explain'
 import { addCents, isBalanced } from './money'
 import { calculateGrossCents, calculateTaxCents, isVatRate } from './vat'
+
+export interface ValidateJournalOptions {
+  /**
+   * When false, the draft rate is treated as 0 % and buildLines emits no
+   * 1571/1576/1771/1776 lines. Default true.
+   */
+  vatEnabled?: boolean
+}
 
 function vorsteuerAccount(vatRate: 7 | 19): string {
   return vatRate === 7 ? '1571' : '1576'
@@ -71,7 +80,9 @@ function buildLines(
 export function validateJournalEntry(
   draft: JournalEntryDraft,
   accounts: Account[],
+  options?: ValidateJournalOptions,
 ): ValidationResult {
+  const vatEnabled = options?.vatEnabled !== false
   const issues: ValidationIssue[] = []
 
   if (!draft.date || Number.isNaN(Date.parse(draft.date))) {
@@ -126,10 +137,13 @@ export function validateJournalEntry(
     return { ok: false, issues }
   }
 
+  const vatRate: VatRate = vatEnabled ? draft.vatRate : 0
+  const effectiveDraft: JournalEntryDraft = { ...draft, vatRate }
+
   // USt > 0 nur bei Aufwand→Vorsteuer oder Erlös→Umsatzsteuer; sonst würde
   // buildLines den Nettobetrag still ohne Steuerzeilen buchen.
   if (
-    (draft.vatRate === 7 || draft.vatRate === 19) &&
+    (vatRate === 7 || vatRate === 19) &&
     debit.type !== 'aufwand' &&
     credit.type !== 'ertrag'
   ) {
@@ -145,9 +159,9 @@ export function validateJournalEntry(
     }
   }
 
-  const taxAmountCents = calculateTaxCents(draft.netAmountCents, draft.vatRate)
-  const grossAmountCents = calculateGrossCents(draft.netAmountCents, draft.vatRate)
-  const lines = buildLines(draft, debit, credit, taxAmountCents, grossAmountCents)
+  const taxAmountCents = calculateTaxCents(draft.netAmountCents, vatRate)
+  const grossAmountCents = calculateGrossCents(draft.netAmountCents, vatRate)
+  const lines = buildLines(effectiveDraft, debit, credit, taxAmountCents, grossAmountCents)
 
   const totalDebit = addCents(...lines.map((line) => line.debitCents))
   const totalCredit = addCents(...lines.map((line) => line.creditCents))
@@ -164,9 +178,9 @@ export function validateJournalEntry(
     }
   }
 
-  if (draft.vatRate === 7 || draft.vatRate === 19) {
+  if (vatRate === 7 || vatRate === 19) {
     if (debit.type === 'aufwand') {
-      const taxAccount = vorsteuerAccount(draft.vatRate)
+      const taxAccount = vorsteuerAccount(vatRate)
       if (!findAccount(accounts, taxAccount)) {
         return {
           ok: false,
@@ -180,7 +194,7 @@ export function validateJournalEntry(
       }
     }
     if (credit.type === 'ertrag') {
-      const taxAccount = umsatzsteuerAccount(draft.vatRate)
+      const taxAccount = umsatzsteuerAccount(vatRate)
       if (!findAccount(accounts, taxAccount)) {
         return {
           ok: false,
@@ -198,13 +212,13 @@ export function validateJournalEntry(
   return {
     ok: true,
     entry: {
-      ...draft,
+      ...effectiveDraft,
       documentNumber: draft.documentNumber.trim(),
       description: draft.description.trim(),
       taxAmountCents,
       grossAmountCents,
       lines,
-      explanation: explainBooking(draft, debit, credit, taxAmountCents),
+      explanation: explainBooking(effectiveDraft, debit, credit, taxAmountCents),
     },
   }
 }

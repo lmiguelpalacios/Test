@@ -13,6 +13,11 @@ import type {
   LearningTask,
 } from '../types/learning'
 
+export interface EvaluateLearningOptions {
+  /** When false, the USt criterion is omitted and solutions are compared at 0 %. */
+  vatEnabled?: boolean
+}
+
 /**
  * Bewertet eine Lernantwort gegen die Musterlösung bzw. die Abschluss-Evaluatoren.
  * Nutzt denselben Kontenplan wie die echte Buchhaltung — ohne Journalbuchung.
@@ -20,12 +25,14 @@ import type {
 export function evaluateLearningAnswer(
   task: LearningTask,
   submission: LearningSubmission,
+  options?: EvaluateLearningOptions,
 ): EvaluationResult {
+  const vatEnabled = options?.vatEnabled !== false
   if (task.kind === 'booking') {
     if (submission.kind !== 'booking') {
       return mismatchResult(task.maxPoints, 'Buchungsantwort erwartet.')
     }
-    return evaluateBookingAnswer(task, submission.answer)
+    return evaluateBookingAnswer(task, submission.answer, vatEnabled)
   }
 
   if (task.kind === 't_accounts') {
@@ -64,6 +71,7 @@ export function evaluateLearningAnswer(
 function evaluateBookingAnswer(
   task: BookingLearningTask,
   answer: LearningAnswer,
+  vatEnabled: boolean,
 ): EvaluationResult {
   const map = getAccountMap()
   const solution = task.solution
@@ -119,21 +127,24 @@ function evaluateBookingAnswer(
       : amountFeedback(answer.netAmountCents, solution.netAmountCents),
   })
 
-  const vatOk = answer.vatRate === solution.vatRate
-  criteria.push({
-    id: 'vat',
-    label: 'USt-Satz',
-    ok: vatOk,
-    points: vatOk ? 1 : 0,
-    maxPoints: 1,
-    feedback: vatOk
-      ? `USt-Satz ${solution.vatRate} % ist korrekt.`
-      : vatFeedback(answer.vatRate, solution.vatRate),
-  })
+  if (vatEnabled) {
+    const vatOk = answer.vatRate === solution.vatRate
+    criteria.push({
+      id: 'vat',
+      label: 'USt-Satz',
+      ok: vatOk,
+      points: vatOk ? 1 : 0,
+      maxPoints: 1,
+      feedback: vatOk
+        ? `USt-Satz ${solution.vatRate} % ist korrekt.`
+        : vatFeedback(answer.vatRate, solution.vatRate),
+    })
+  }
 
   const score = criteria.reduce((sum, item) => sum + item.points, 0)
-  const maxPoints = task.maxPoints
-  const fullyCorrect = score === maxPoints && criteria.every((item) => item.ok)
+  const maxPoints = criteria.reduce((sum, item) => sum + item.maxPoints, 0)
+  const fullyCorrect =
+    maxPoints > 0 && score === maxPoints && criteria.every((item) => item.ok)
 
   let summary: string
   if (fullyCorrect) {
@@ -222,7 +233,11 @@ function vatFeedback(given: number, expected: number): string {
 }
 
 /** Baut den Journal-Entwurf aus der Musterlösung (nur nach Bestätigung nutzbar). */
-export function solutionToPracticeDraft(task: BookingLearningTask) {
+export function solutionToPracticeDraft(
+  task: BookingLearningTask,
+  options?: EvaluateLearningOptions,
+) {
+  const vatEnabled = options?.vatEnabled !== false
   return {
     date: '2026-10-12',
     documentNumber: `LERN-${String(task.number).padStart(3, '0')}`,
@@ -230,6 +245,6 @@ export function solutionToPracticeDraft(task: BookingLearningTask) {
     debitAccount: task.solution.debitAccount,
     creditAccount: task.solution.creditAccount,
     netAmountCents: task.solution.netAmountCents,
-    vatRate: task.solution.vatRate,
+    vatRate: vatEnabled ? task.solution.vatRate : 0,
   }
 }

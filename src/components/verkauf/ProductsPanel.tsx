@@ -6,7 +6,7 @@ import { DemoBanner } from '../DemoBanner'
 import { PageHeader } from '../PageHeader'
 
 export function ProductsPanel() {
-  const { sales, purchase } = useAccounting()
+  const { sales, purchase, vatEnabled } = useAccounting()
   const snapshot = buildStockSnapshot(sales.products, purchase.stockMovements)
   const stockById = new Map(snapshot.map((row) => [row.product.id, row]))
 
@@ -37,7 +37,7 @@ export function ProductsPanel() {
                 <th>Beschreibung</th>
                 <th className="num">EK</th>
                 <th className="num">VK</th>
-                <th>USt</th>
+                {vatEnabled ? <th>USt</th> : null}
                 <th className="num">Bestand</th>
               </tr>
             </thead>
@@ -53,7 +53,7 @@ export function ProductsPanel() {
                     <td className="muted">{product.description ?? '—'}</td>
                     <td className="num">{formatCents(product.netPurchasePriceCents)}</td>
                     <td className="num">{formatCents(product.netUnitPriceCents)}</td>
-                    <td>{product.vatRate} %</td>
+                    {vatEnabled ? <td>{product.vatRate} %</td> : null}
                     <td className="num">
                       {product.tracksStock ? (stock?.quantity ?? 0) : '—'}
                     </td>

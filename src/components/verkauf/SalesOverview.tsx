@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Plus, Users, Package } from 'lucide-react'
 import { useAccounting } from '../../accounting/AccountingContext'
 import { formatCents } from '../../accounting/money'
+import { displayVatRate } from '../../accounting/vat'
 import { calculateInvoiceTotals } from '../../sales/invoiceMath'
 import type { InvoiceStatus } from '../../types/sales'
 import { deriveInvoiceStatus, openAmountCents } from '../../sales/invoiceStatus'
@@ -20,7 +21,7 @@ const STATUS_FILTERS: Array<{ id: 'alle' | InvoiceStatus; label: string }> = [
 ]
 
 export function SalesOverview() {
-  const { sales, persistWarning, isLocalDemoMode } = useAccounting()
+  const { sales, persistWarning, isLocalDemoMode, vatEnabled } = useAccounting()
   const [statusFilter, setStatusFilter] = useState<'alle' | InvoiceStatus>('alle')
   const [query, setQuery] = useState('')
 
@@ -29,7 +30,16 @@ export function SalesOverview() {
     return sales.invoices
       .map((invoice) => {
         const customer = sales.customers.find((item) => item.id === invoice.customerId)
-        const totals = calculateInvoiceTotals(invoice.lines)
+        const totals = calculateInvoiceTotals(
+          invoice.lines.map((line) => ({
+            ...line,
+            vatRate: displayVatRate(
+              line.vatRate,
+              vatEnabled,
+              invoice.journalEntryIds.length > 0,
+            ),
+          })),
+        )
         const status = deriveInvoiceStatus(invoice, sales.payments)
         const open = openAmountCents(invoice, sales.payments)
         return { invoice, customer, totals, status, open }
@@ -43,7 +53,7 @@ export function SalesOverview() {
         )
       })
       .sort((a, b) => b.invoice.issueDate.localeCompare(a.invoice.issueDate))
-  }, [sales, statusFilter, query])
+  }, [sales, statusFilter, query, vatEnabled])
 
   return (
     <div className="page-stack">

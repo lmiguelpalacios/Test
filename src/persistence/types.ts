@@ -31,6 +31,8 @@ export interface WorkspaceSnapshot {
   sales: SalesState
   purchase: PurchaseState
   learning: LearningState
+  /** Local snapshot. Supabase reads organizations.vat_enabled via OrgContext. */
+  vatEnabled?: boolean
   source: PersistSource
   warning?: string
 }
@@ -90,6 +92,8 @@ export interface WorkspaceRepository {
       sales: SalesState
       purchase: PurchaseState
       learning: LearningState
+      /** Sets organizations.vat_enabled on the target org. Default on. */
+      vatEnabled?: boolean
     }
     sourceLabel?: string
   }): Promise<ActionResult & { batchId?: string; alreadyImported?: boolean }>
@@ -100,6 +104,8 @@ export interface OrgMembership {
   organizationName: string
   organizationSlug: string
   role: 'owner' | 'teacher' | 'student' | 'viewer'
+  /** organizations.vat_enabled. Missing/unknown values are treated as on. */
+  vatEnabled: boolean
 }
 
 export type { InvoicePayment }

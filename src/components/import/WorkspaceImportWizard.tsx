@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useAccounting } from '../../accounting/AccountingContext'
 import { loadWorkspace } from '../../accounting/journalStore'
+import { useOrg } from '../../auth/OrgContext'
 import { useDataBackend } from '../../persistence/DataBackendContext'
 import {
   hashWorkspacePayload,
@@ -11,6 +12,7 @@ type Step = 'idle' | 'preview' | 'done'
 
 export function WorkspaceImportWizard() {
   const { reloadFromBackend, isLocalDemoMode } = useAccounting()
+  const { refresh } = useOrg()
   const { mode, repository, capabilities } = useDataBackend()
   const [step, setStep] = useState<Step>('idle')
   const [error, setError] = useState<string | undefined>()
@@ -36,7 +38,7 @@ export function WorkspaceImportWizard() {
   if (isLocalDemoMode || !available) {
     return (
       <div className="panel">
-        <h2 className="panel-title">Workspace-v4-Import</h2>
+        <h2 className="panel-title">Workspace-Import</h2>
         <p className="panel-meta">
           Nur im Supabase-Modus mit Owner-Organisation. Lokal bleibt der Demo-Stand im
           Browser — kein Auto-Upload.
@@ -50,7 +52,7 @@ export function WorkspaceImportWizard() {
     setInfo(undefined)
     setConfirmed(false)
     if (!localPreview) {
-      setError('Kein lokaler Workspace v4 im Browser gefunden.')
+      setError('Kein lokaler Workspace im Browser gefunden.')
       return
     }
     const payload = {
@@ -74,12 +76,13 @@ export function WorkspaceImportWizard() {
     setError(undefined)
     const result = await repository.importWorkspace({
       contentHash,
-      sourceLabel: 'browser-localStorage-v4',
+      sourceLabel: 'browser-localStorage-v5',
       workspace: {
         entries: localPreview.entries,
         sales: localPreview.sales,
         purchase: localPreview.purchase,
         learning: localPreview.learning,
+        vatEnabled: localPreview.vatEnabled,
       },
     })
     setBusy(false)
@@ -93,6 +96,7 @@ export function WorkspaceImportWizard() {
     } else {
       setInfo(`Import erfolgreich${result.batchId ? ` (Batch ${result.batchId})` : ''}.`)
     }
+    await refresh()
     await reloadFromBackend()
     setStep('done')
   }

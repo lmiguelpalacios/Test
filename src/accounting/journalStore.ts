@@ -10,7 +10,7 @@ import { isBalanced } from './money'
 import { sumLines } from './validateEntry'
 
 export const JOURNAL_STORAGE_KEY = 'nordlicht.uebungsunternehmen.journal.v1'
-export const JOURNAL_STORAGE_VERSION = 4 as const
+export const JOURNAL_STORAGE_VERSION = 5 as const
 
 export interface StorageLike {
   getItem(key: string): string | null
@@ -25,6 +25,8 @@ export interface WorkspacePersistPayload {
   sales: SalesState
   purchase: PurchaseState
   learning: LearningState
+  /** Default an. Aus = neue Buchungen ohne USt-/VSt-Zeilen. */
+  vatEnabled: boolean
 }
 
 export type JournalLoadSource = 'storage' | 'demo' | 'recovered-demo'
@@ -34,6 +36,7 @@ export interface WorkspaceLoadResult {
   sales: SalesState
   purchase: PurchaseState
   learning: LearningState
+  vatEnabled: boolean
   source: JournalLoadSource
   warning?: string
 }
@@ -402,12 +405,14 @@ export function cloneDemoWorkspace(): {
   sales: SalesState
   purchase: PurchaseState
   learning: LearningState
+  vatEnabled: boolean
 } {
   return {
     entries: cloneDemoEntries(),
     sales: createDemoSalesState(),
     purchase: createDemoPurchaseState(),
     learning: createEmptyLearningState(),
+    vatEnabled: true,
   }
 }
 
@@ -417,6 +422,7 @@ export function saveWorkspace(
     sales: SalesState
     purchase: PurchaseState
     learning: LearningState
+    vatEnabled?: boolean
   },
   storage: StorageLike,
 ): void {
@@ -427,6 +433,7 @@ export function saveWorkspace(
     sales: data.sales,
     purchase: data.purchase,
     learning: data.learning,
+    vatEnabled: data.vatEnabled !== false,
   }
   storage.setItem(JOURNAL_STORAGE_KEY, JSON.stringify(payload))
 }
@@ -445,11 +452,16 @@ export function clearJournalStorage(storage: StorageLike): void {
   storage.removeItem(JOURNAL_STORAGE_KEY)
 }
 
+function readVatEnabled(value: unknown): boolean {
+  return typeof value === 'boolean' ? value : true
+}
+
 export function resetWorkspace(storage: StorageLike): {
   entries: JournalEntry[]
   sales: SalesState
   purchase: PurchaseState
   learning: LearningState
+  vatEnabled: boolean
 } {
   const demo = cloneDemoWorkspace()
   saveWorkspace(demo, storage)
@@ -494,6 +506,7 @@ export function loadWorkspace(storage: StorageLike): WorkspaceLoadResult {
         sales,
         purchase,
         learning,
+        vatEnabled: true,
         source: 'storage',
         warning:
           'Verkauf/Einkauf/Lernmodus wurden ergänzt (Migration von Persistenz v1).',
@@ -517,6 +530,7 @@ export function loadWorkspace(storage: StorageLike): WorkspaceLoadResult {
         sales,
         purchase,
         learning,
+        vatEnabled: true,
         source: 'storage',
         warning:
           'Einkauf/Lernmodus wurden ergänzt (Migration von Persistenz v2).',
@@ -534,14 +548,40 @@ export function loadWorkspace(storage: StorageLike): WorkspaceLoadResult {
         )
       }
       const learning = createEmptyLearningState()
-      saveWorkspace({ entries, sales, purchase, learning }, storage)
+      saveWorkspace({ entries, sales, purchase, learning, vatEnabled: true }, storage)
       return {
         entries,
         sales,
         purchase,
         learning,
+        vatEnabled: true,
         source: 'storage',
         warning: 'Lernfortschritt wurde ergänzt (Migration von Persistenz v3).',
+      }
+    }
+
+    if (parsed.version === 4) {
+      const entries = sanitizeEntries(parsed.entries)
+      const sales = sanitizeSales(parsed.sales)
+      const purchase = sanitizePurchase(parsed.purchase)
+      const learning = sanitizeLearning(parsed.learning) ?? createEmptyLearningState()
+      if (entries.length === 0 || !sales || !purchase) {
+        return recoverDemo(
+          storage,
+          'Gespeicherte Daten waren unvollständig und wurden zurückgesetzt.',
+        )
+      }
+      const vatEnabled = readVatEnabled(parsed.vatEnabled)
+      saveWorkspace({ entries, sales, purchase, learning, vatEnabled }, storage)
+      return {
+        entries,
+        sales,
+        purchase,
+        learning,
+        vatEnabled,
+        source: 'storage',
+        warning:
+          'Umsatzsteuer-Schalter ergänzt (Standard: an, Migration von Persistenz v4).',
       }
     }
 
@@ -563,7 +603,8 @@ export function loadWorkspace(storage: StorageLike): WorkspaceLoadResult {
       )
     }
 
-    return { entries, sales, purchase, learning, source: 'storage' }
+    const vatEnabled = readVatEnabled(parsed.vatEnabled)
+    return { entries, sales, purchase, learning, vatEnabled, source: 'storage' }
   } catch {
     return recoverDemo(
       storage,

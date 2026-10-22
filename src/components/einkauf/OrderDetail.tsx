@@ -2,6 +2,7 @@ import { useMemo, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useAccounting } from '../../accounting/AccountingContext'
 import { formatCents } from '../../accounting/money'
+import { displayVatRate } from '../../accounting/vat'
 import { calculateInvoiceTotals } from '../../sales/invoiceMath'
 import {
   PURCHASE_ORDER_STATUS_LABELS,
@@ -14,7 +15,7 @@ import { PageHeader } from '../PageHeader'
 
 export function OrderDetail() {
   const { orderId } = useParams()
-  const { purchase, confirmPurchaseOrder, recordGoodsReceipt } = useAccounting()
+  const { purchase, confirmPurchaseOrder, recordGoodsReceipt, vatEnabled } = useAccounting()
   const order = purchase.orders.find((item) => item.id === orderId)
   const supplier = purchase.suppliers.find((item) => item.id === order?.supplierId)
   const [message, setMessage] = useState<string | null>(null)
@@ -33,10 +34,10 @@ export function OrderDetail() {
         description: line.description,
         quantity: line.quantity,
         netUnitPriceCents: line.netUnitPriceCents,
-        vatRate: line.vatRate,
+        vatRate: displayVatRate(line.vatRate, vatEnabled, false),
       })),
     )
-  }, [order])
+  }, [order, vatEnabled])
 
   if (!order || !status || !totals) {
     return (
@@ -117,8 +118,8 @@ export function OrderDetail() {
             <h2 className="panel-title">Bestelldaten</h2>
           </div>
           <p className="panel-note">
-            Datum {formatDate(order.orderDate)} · Netto {formatCents(totals.netCents)} ·
-            Brutto {formatCents(totals.grossCents)}
+            Datum {formatDate(order.orderDate)} · Netto {formatCents(totals.netCents)}
+            {vatEnabled ? ` · Brutto ${formatCents(totals.grossCents)}` : ''}
           </p>
           {status === 'entwurf' ? (
             <button type="button" className="btn btn-primary" onClick={handleConfirm}>

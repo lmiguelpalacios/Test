@@ -62,6 +62,7 @@ import { buildGoodsReceiptStockMovements } from '../purchase/stock'
 import { buildInvoiceBookingDrafts } from '../sales/bookInvoice'
 import { validateInvoiceLine } from '../sales/invoiceMath'
 import { buildPaymentBookingDraft } from '../sales/recordPayment'
+import { useOrg } from '../auth/OrgContext'
 import { useDataBackend } from '../persistence/DataBackendContext'
 import type { ModuleCapabilities } from '../persistence/types'
 import { ensureUuid } from '../persistence/supabaseWorkspaceRepository'
@@ -160,6 +161,9 @@ interface AccountingContextValue {
    * und nur wenn die Aufgabe abgeschlossen ist.
    */
   postLearningPracticeEntry: (taskId: string) => ActionResult
+  /** Umsatzsteuer an (Standard). Aus: neue Buchungen ohne Steuerzeilen. */
+  vatEnabled: boolean
+  setVatEnabled: (enabled: boolean) => Promise<ActionResult>
 }
 
 const AccountingContext = createContext<AccountingContextValue | null>(null)
@@ -213,6 +217,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
     awaitingRemoteSession,
   } = useDataBackend()
   const isLocal = mode === 'local'
+  const { activeMembership, setVatEnabled: setOrgVatEnabled } = useOrg()
 
   const initial = useMemo(() => {
     if (!isLocal) {
@@ -237,6 +242,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
           nextVendorInvoiceSequence: 1,
         } as PurchaseState,
         learning: { progress: [], totalPoints: 0 } as LearningState,
+        vatEnabled: true,
         source: 'empty' as PersistSource,
         warning: awaitingRemoteSession
           ? 'Supabase-Modus: warte auf Anmeldung/Organisation…'
@@ -258,6 +264,8 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
   const [sales, setSales] = useState<SalesState>(initial.sales)
   const [purchase, setPurchase] = useState<PurchaseState>(initial.purchase)
   const [learning, setLearning] = useState<LearningState>(initial.learning)
+  const [localVatEnabled, setLocalVatEnabled] = useState(initial.vatEnabled)
+  const vatEnabled = isLocal ? localVatEnabled : (activeMembership?.vatEnabled ?? true)
   const [persistSource, setPersistSource] = useState<PersistSource>(initial.source)
   const [persistWarning, setPersistWarning] = useState<string | undefined>(
     initial.warning,
@@ -311,13 +319,24 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
     const storage = getBrowserStorage()
     if (!storage) return
     try {
-      saveWorkspace({ entries, sales, purchase, learning }, storage)
+      saveWorkspace({ entries, sales, purchase, learning, vatEnabled: localVatEnabled }, storage)
     } catch {
       setPersistWarning(
         'Daten konnten nicht im Browser gespeichert werden (localStorage voll oder blockiert).',
       )
     }
-  }, [isLocal, entries, sales, purchase, learning])
+  }, [isLocal, entries, sales, purchase, learning, localVatEnabled])
+
+  const setVatEnabled = useCallback(
+    async (enabled: boolean): Promise<ActionResult> => {
+      if (isLocal) {
+        setLocalVatEnabled(enabled)
+        return { ok: true }
+      }
+      return setOrgVatEnabled(enabled)
+    },
+    [isLocal, setOrgVatEnabled],
+  )
 
   const addEntry = useCallback((draft: JournalEntryDraft): AddEntryResult => {
     if (!capabilities.manualJournal) {
@@ -332,7 +351,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
         ],
       }
     }
-    const result = validateJournalEntry(draft, chartOfAccounts)
+    const result = validateJournalEntry(draft, chartOfAccounts, { vatEnabled })
     if (!result.ok) return result
     const entry: JournalEntry = {
       ...result.entry,
@@ -342,7 +361,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
     setEntries((prev) => [entry, ...prev])
     setPersistSource('storage')
     return { ok: true, entry }
-  }, [capabilities.manualJournal])
+  }, [capabilities.manualJournal, vatEnabled])
 
   const resetToDemo = useCallback(() => {
     if (!capabilities.resetDemo) {
@@ -355,6 +374,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
     setSales(demo.sales)
     setPurchase(demo.purchase)
     setLearning(demo.learning)
+    setLocalVatEnabled(demo.vatEnabled)
     setPersistSource('demo')
     setPersistWarning(
       getBrowserStorage()
@@ -387,7 +407,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
     ): Promise<ActionResult & { evaluation?: EvaluationResult }> => {
       const task = getLearningTaskById(taskId)
       if (!task) return { ok: false, message: 'Lernaufgabe nicht gefunden.' }
-      const evaluation = evaluateLearningAnswer(task, submission)
+      const evaluation = evaluateLearningAnswer(task, submission, { vatEnabled })
       const now = new Date().toISOString()
       let nextState: LearningState | undefined
       setLearning((prev) => {
@@ -420,7 +440,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
       if (!persist.ok) return persist
       return { ok: true, evaluation }
     },
-    [persistLearningState],
+    [persistLearningState, vatEnabled],
   )
 
   const completeLearningTask = useCallback(
@@ -488,8 +508,8 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
       }
       bookingLocks.current.add(lockKey)
       try {
-        const draft = solutionToPracticeDraft(task)
-        const result = validateJournalEntry(draft, chartOfAccounts)
+        const draft = solutionToPracticeDraft(task, { vatEnabled })
+        const result = validateJournalEntry(draft, chartOfAccounts, { vatEnabled })
         if (!result.ok) {
           return {
             ok: false,
@@ -516,7 +536,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
         bookingLocks.current.delete(lockKey)
       }
     },
-    [learning.progress, capabilities.learningPracticeJournal],
+    [learning.progress, capabilities.learningPracticeJournal, vatEnabled],
   )
 
   const upsertCustomer = useCallback(
@@ -556,7 +576,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
         description: input.description?.trim() || undefined,
         netUnitPriceCents: input.netUnitPriceCents,
         netPurchasePriceCents: input.netPurchasePriceCents,
-        vatRate: input.vatRate,
+        vatRate: vatEnabled ? input.vatRate : 0,
         tracksStock: input.tracksStock,
         minStockQuantity: input.minStockQuantity,
       }
@@ -575,7 +595,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
       }
       return product
     },
-    [isLocal, repository],
+    [isLocal, repository, vatEnabled],
   )
 
   const saveDraftInvoice = useCallback(
@@ -697,12 +717,19 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
           return { ok: false, message: 'Diese Rechnung wurde bereits gebucht.' }
         }
         const customer = sales.customers.find((item) => item.id === invoice.customerId)
-        const built = buildInvoiceBookingDrafts(invoice, customer)
+        const lines = vatEnabled
+          ? invoice.lines
+          : invoice.lines.map((line) => ({ ...line, vatRate: 0 as const }))
+        const built = buildInvoiceBookingDrafts(
+          { ...invoice, lines },
+          customer,
+          { vatEnabled },
+        )
         if (!built.ok) return built
 
         const createdEntries: JournalEntry[] = []
         for (const draft of built.drafts) {
-          const result = validateJournalEntry(draft, chartOfAccounts)
+          const result = validateJournalEntry(draft, chartOfAccounts, { vatEnabled })
           if (!result.ok) {
             return {
               ok: false,
@@ -730,6 +757,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
               item.id === invoiceId
                 ? {
                     ...item,
+                    lines,
                     journalEntryIds: createdIds,
                     bookedAt,
                     updatedAt: bookedAt,
@@ -755,7 +783,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
         bookingLocks.current.delete(`book:${invoiceId}`)
       }
     },
-    [isLocal, repository, reloadFromBackend, sales.invoices, sales.customers, sales.products],
+    [isLocal, repository, reloadFromBackend, sales.invoices, sales.customers, sales.products, vatEnabled],
   )
 
   const recordInvoicePayment = useCallback(
@@ -1200,12 +1228,19 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
           return { ok: false, message: 'Diese Eingangsrechnung wurde bereits gebucht.' }
         }
         const supplier = purchase.suppliers.find((item) => item.id === invoice.supplierId)
-        const built = buildVendorInvoiceBookingDrafts(invoice, supplier)
+        const lines = vatEnabled
+          ? invoice.lines
+          : invoice.lines.map((line) => ({ ...line, vatRate: 0 as const }))
+        const built = buildVendorInvoiceBookingDrafts(
+          { ...invoice, lines },
+          supplier,
+          { vatEnabled },
+        )
         if (!built.ok) return built
 
         const createdEntries: JournalEntry[] = []
         for (const draft of built.drafts) {
-          const result = validateJournalEntry(draft, chartOfAccounts)
+          const result = validateJournalEntry(draft, chartOfAccounts, { vatEnabled })
           if (!result.ok) {
             return {
               ok: false,
@@ -1231,6 +1266,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
               item.id === invoiceId
                 ? {
                     ...item,
+                    lines,
                     journalEntryIds: createdIds,
                     bookedAt,
                     updatedAt: bookedAt,
@@ -1249,7 +1285,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
         bookingLocks.current.delete(`vbook:${invoiceId}`)
       }
     },
-    [isLocal, repository, reloadFromBackend, purchase.vendorInvoices, purchase.suppliers],
+    [isLocal, repository, reloadFromBackend, purchase.vendorInvoices, purchase.suppliers, vatEnabled],
   )
 
   const recordVendorPayment = useCallback(
@@ -1367,6 +1403,8 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
       submitLearningAnswer,
       completeLearningTask,
       postLearningPracticeEntry,
+      vatEnabled,
+      setVatEnabled,
     }),
     [
       entries,
@@ -1397,6 +1435,8 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
       submitLearningAnswer,
       completeLearningTask,
       postLearningPracticeEntry,
+      vatEnabled,
+      setVatEnabled,
     ],
   )
 

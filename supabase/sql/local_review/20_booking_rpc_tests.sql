@@ -30,6 +30,8 @@ declare
   inv_ar_tax uuid;
   inv_er uuid;
   inv_er_bad uuid;
+  inv_ar_novat uuid;
+  inv_er_novat uuid;
   sup_a uuid;
   je uuid;
   je2 uuid;
@@ -50,6 +52,7 @@ declare
   v_pay_count int;
   v_je_count_before int;
   v_je_count_after int;
+  v_tax_lines int;
 begin
   select id into org_a from public.organizations where slug = 'org-a';
   select id into org_b from public.organizations where slug = 'org-b';
@@ -535,6 +538,77 @@ begin
     format('raised=%s booked=%s links=%s je_before=%s je_after=%s err=%s',
       raised, v_booked, n, v_je_count_before, v_je_count_after, err)
   );
+
+  -- ========================================================================
+  -- vat_enabled false: client rate 19 must not create 1776 / 1576
+  -- ========================================================================
+  update public.organizations set vat_enabled = false where id = org_a;
+
+  perform set_config('request.jwt.claim.sub', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa3', false);
+  set role authenticated;
+
+  insert into public.sales_invoices (
+    organization_id, number, issue_date, due_date, customer_id
+  ) values (org_a, 'AR-RPC-NOVAT', current_date, current_date + 14, cust_a)
+  returning id into inv_ar_novat;
+
+  insert into public.sales_invoice_lines (
+    organization_id, invoice_id, description, quantity, net_unit_price_cents, vat_rate
+  ) values (org_a, inv_ar_novat, '19% ignored', 1, 10000, 19);
+
+  je := public.book_sales_invoice(org_a, inv_ar_novat);
+
+  insert into public.vendor_invoices (
+    organization_id, external_number, internal_number, supplier_id,
+    issue_date, due_date
+  ) values (org_a, 'EXT-NOVAT', 'ER-RPC-NOVAT', sup_a, current_date, current_date + 14)
+  returning id into inv_er_novat;
+
+  insert into public.vendor_invoice_lines (
+    organization_id, invoice_id, description,
+    quantity, net_unit_price_cents, vat_rate, expense_account
+  ) values (org_a, inv_er_novat, '19% ignored', 1, 5000, 19, '3400');
+
+  je2 := public.book_vendor_invoice(org_a, inv_er_novat);
+  reset role;
+
+  select count(*) into v_tax_lines
+  from public.journal_lines
+  where journal_entry_id in (je, je2)
+    and account_number in ('1571', '1576', '1771', '1776');
+
+  select count(*) into n
+  from public.journal_lines
+  where journal_entry_id = je and account_number = '1776';
+
+  perform public.booking_expect(
+    'VAT_OFF_NO_TAX_LINES',
+    v_tax_lines = 0 and n = 0,
+    format('tax_lines=%s ust19=%s sales_je=%s vendor_je=%s', v_tax_lines, n, je, je2)
+  );
+
+  select vat_rate = 0 and tax_amount_cents = 0 and gross_amount_cents = net_amount_cents
+  into raised
+  from public.journal_entries
+  where id = je;
+
+  perform public.booking_expect(
+    'VAT_OFF_SALES_NET',
+    raised,
+    'sales journal stored rate 0 and gross = net'
+  );
+
+  select count(*) into n
+  from public.journal_lines
+  where journal_entry_id = je2 and account_number = '1576';
+
+  perform public.booking_expect(
+    'VAT_OFF_NO_1576',
+    n = 0,
+    format('vst19_lines=%s', n)
+  );
+
+  update public.organizations set vat_enabled = true where id = org_a;
 
 end $$;
 

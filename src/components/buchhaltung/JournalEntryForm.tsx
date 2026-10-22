@@ -10,7 +10,7 @@ const VAT_OPTIONS: VatRate[] = [0, 7, 19]
 
 export function JournalEntryForm() {
   const navigate = useNavigate()
-  const { addEntry } = useAccounting()
+  const { addEntry, vatEnabled } = useAccounting()
 
   const [date, setDate] = useState('2026-10-09')
   const [documentNumber, setDocumentNumber] = useState('')
@@ -25,10 +25,11 @@ export function JournalEntryForm() {
   const preview = useMemo(() => {
     const net = parseEuroInput(netInput)
     if (net === null || net <= 0) return null
-    const tax = calculateTaxCents(net, vatRate)
-    const gross = calculateGrossCents(net, vatRate)
+    const rate = vatEnabled ? vatRate : 0
+    const tax = calculateTaxCents(net, rate)
+    const gross = calculateGrossCents(net, rate)
     return { net, tax, gross }
-  }, [netInput, vatRate])
+  }, [netInput, vatRate, vatEnabled])
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault()
@@ -46,7 +47,7 @@ export function JournalEntryForm() {
       debitAccount,
       creditAccount,
       netAmountCents,
-      vatRate,
+      vatRate: vatEnabled ? vatRate : 0,
     })
 
     if (!result.ok) {
@@ -161,39 +162,45 @@ export function JournalEntryForm() {
           />
         </label>
 
-        <label className="form-field">
-          <span>USt-Satz</span>
-          <select
-            value={vatRate}
-            onChange={(event) => {
-              const value = Number(event.target.value)
-              if (isVatRate(value)) setVatRate(value)
-            }}
-          >
-            {VAT_OPTIONS.map((rate) => (
-              <option key={rate} value={rate}>
-                {rate} %
-              </option>
-            ))}
-          </select>
-        </label>
+        {vatEnabled ? (
+          <label className="form-field">
+            <span>USt-Satz</span>
+            <select
+              value={vatRate}
+              onChange={(event) => {
+                const value = Number(event.target.value)
+                if (isVatRate(value)) setVatRate(value)
+              }}
+            >
+              {VAT_OPTIONS.map((rate) => (
+                <option key={rate} value={rate}>
+                  {rate} %
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
       </div>
 
-      <div className="amount-preview">
-        <div>
-          <span className="muted">Steuerbetrag</span>
-          <strong>{preview ? formatCents(preview.tax) : '—'}</strong>
+      {vatEnabled ? (
+        <div className="amount-preview">
+          <div>
+            <span className="muted">Steuerbetrag</span>
+            <strong>{preview ? formatCents(preview.tax) : '—'}</strong>
+          </div>
+          <div>
+            <span className="muted">Bruttobetrag</span>
+            <strong>{preview ? formatCents(preview.gross) : '—'}</strong>
+          </div>
         </div>
-        <div>
-          <span className="muted">Bruttobetrag</span>
-          <strong>{preview ? formatCents(preview.gross) : '—'}</strong>
-        </div>
-      </div>
+      ) : (
+        <p className="panel-note">Betrag bleibt netto. Umsatzsteuer ist aus.</p>
+      )}
 
       <p className="form-hint">
-        Bei Aufwandsbuchungen mit USt wird Vorsteuer automatisch im Soll ergänzt; bei
-        Erlösen Umsatzsteuer im Haben. Soll und Haben müssen ausgeglichen sein — ungültige
-        Buchungen werden abgelehnt.
+        {vatEnabled
+          ? 'Bei Aufwandsbuchungen mit USt wird Vorsteuer automatisch im Soll ergänzt; bei Erlösen Umsatzsteuer im Haben. Soll und Haben müssen ausgeglichen sein — ungültige Buchungen werden abgelehnt.'
+          : 'Neue Buchungen enthalten keine Vorsteuer- oder Umsatzsteuerzeilen. Soll und Haben müssen ausgeglichen sein.'}
       </p>
 
       <div className="form-actions">

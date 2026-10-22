@@ -7,9 +7,12 @@ import {
   JOURNAL_STORAGE_VERSION,
   clearJournalStorage,
   createMemoryStorage,
+  cloneDemoWorkspace,
   loadJournalEntries,
+  loadWorkspace,
   resetJournalEntries,
   saveJournalEntries,
+  saveWorkspace,
   sanitizeEntries,
 } from './journalStore'
 
@@ -74,6 +77,38 @@ describe('Journal-Persistenz (localStorage)', () => {
     const sanitized = sanitizeEntries(broken)
     expect(sanitized).toHaveLength(1)
     expect(sanitized[0]?.id).toBe(initialJournalEntries[1]?.id)
+  })
+
+  it('speichert vatEnabled und migriert v4 mit Standard an', () => {
+    const storage = createMemoryStorage()
+    const demo = cloneDemoWorkspace()
+    saveWorkspace({ ...demo, vatEnabled: false }, storage)
+    const off = loadWorkspace(storage)
+    expect(off.vatEnabled).toBe(false)
+    expect(off.source).toBe('storage')
+
+    const v4 = createMemoryStorage()
+    v4.setItem(
+      JOURNAL_STORAGE_KEY,
+      JSON.stringify({
+        version: 4,
+        savedAt: new Date().toISOString(),
+        entries: demo.entries,
+        sales: demo.sales,
+        purchase: demo.purchase,
+        learning: demo.learning,
+      }),
+    )
+    const migrated = loadWorkspace(v4)
+    expect(migrated.vatEnabled).toBe(true)
+    expect(migrated.entries).toHaveLength(demo.entries.length)
+    expect(migrated.warning).toMatch(/v4/)
+    const stored = JSON.parse(v4.getItem(JOURNAL_STORAGE_KEY) ?? '{}') as {
+      version: number
+      vatEnabled: boolean
+    }
+    expect(stored.version).toBe(JOURNAL_STORAGE_VERSION)
+    expect(stored.vatEnabled).toBe(true)
   })
 
   it('hält geladene Demo-Buchungen ausgeglichen', () => {

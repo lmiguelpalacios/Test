@@ -15,7 +15,13 @@ export type BookInvoiceResult =
 export function buildInvoiceBookingDrafts(
   invoice: SalesInvoice,
   customer: Customer | undefined,
+  options?: { vatEnabled?: boolean },
 ): BookInvoiceResult {
+  const vatEnabled = options?.vatEnabled !== false
+  const lines = vatEnabled
+    ? invoice.lines
+    : invoice.lines.map((line) => ({ ...line, vatRate: 0 as const }))
+  invoice = { ...invoice, lines }
   if (invoice.journalEntryIds.length > 0) {
     return {
       ok: false,

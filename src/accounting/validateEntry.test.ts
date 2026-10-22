@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { chartOfAccounts } from '../data/chart-of-accounts'
 import { initialJournalEntries } from '../data/journal-entries'
+import { isTaxLineAccount } from './vat'
 import { sumLines, validateJournalEntry } from './validateEntry'
 import { isBalanced } from './money'
 
@@ -56,6 +57,56 @@ describe('Buchungsvalidierung / Soll-Haben-Ausgleich', () => {
     expect(result.entry.lines.some((line) => line.accountNumber === '1776')).toBe(
       true,
     )
+  })
+
+  it('buildLines erzeugt keine Steuerzeilen, wenn Umsatzsteuer aus ist', () => {
+    const expense = validateJournalEntry(
+      {
+        date: '2026-10-09',
+        documentNumber: 'ER-NOVAT',
+        description: 'Wareneinkauf ohne USt',
+        debitAccount: '3400',
+        creditAccount: '1600',
+        netAmountCents: 10000,
+        vatRate: 19,
+      },
+      chartOfAccounts,
+      { vatEnabled: false },
+    )
+    expect(expense.ok).toBe(true)
+    if (!expense.ok) return
+    expect(expense.entry.vatRate).toBe(0)
+    expect(expense.entry.taxAmountCents).toBe(0)
+    expect(expense.entry.grossAmountCents).toBe(10000)
+    expect(expense.entry.lines.some((line) => isTaxLineAccount(line.accountNumber))).toBe(
+      false,
+    )
+    const { debitCents, creditCents } = sumLines(expense.entry.lines)
+    expect(debitCents).toBe(10000)
+    expect(creditCents).toBe(10000)
+
+    const revenue = validateJournalEntry(
+      {
+        date: '2026-10-09',
+        documentNumber: 'RE-NOVAT',
+        description: 'Warenverkauf ohne USt',
+        debitAccount: '1400',
+        creditAccount: '8400',
+        netAmountCents: 20000,
+        vatRate: 19,
+      },
+      chartOfAccounts,
+      { vatEnabled: false },
+    )
+    expect(revenue.ok).toBe(true)
+    if (!revenue.ok) return
+    expect(revenue.entry.lines.some((line) => isTaxLineAccount(line.accountNumber))).toBe(
+      false,
+    )
+    expect(revenue.entry.lines).toEqual([
+      { accountNumber: '1400', debitCents: 20000, creditCents: 0 },
+      { accountNumber: '8400', debitCents: 0, creditCents: 20000 },
+    ])
   })
 
   it('lehnt USt>0 ohne Aufwand-/Erlöskonstellation ab (kein stilles Netto-ohne-Steuer)', () => {

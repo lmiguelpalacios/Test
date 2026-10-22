@@ -13,7 +13,7 @@ import type {
 } from './types'
 
 /**
- * Demo repository: delegates persistence to journalStore (Workspace v4).
+ * Demo repository: delegates persistence to journalStore (Workspace v5).
  * Booking/payment mutations stay in AccountingContext (same as today);
  * this adapter exposes load/save/reset for the dual-mode seam.
  */
@@ -33,6 +33,7 @@ export class LocalWorkspaceRepository implements WorkspaceRepository {
       sales: loaded.sales,
       purchase: loaded.purchase,
       learning: loaded.learning,
+      vatEnabled: loaded.vatEnabled,
       source: loaded.source,
       warning: loaded.warning,
     }
@@ -47,6 +48,7 @@ export class LocalWorkspaceRepository implements WorkspaceRepository {
         sales: snapshot.sales,
         purchase: snapshot.purchase,
         learning: snapshot.learning,
+        vatEnabled: snapshot.vatEnabled,
       },
       this.storage,
     )
@@ -59,6 +61,7 @@ export class LocalWorkspaceRepository implements WorkspaceRepository {
       sales: demo.sales,
       purchase: demo.purchase,
       learning: demo.learning,
+      vatEnabled: demo.vatEnabled,
       source: 'demo',
     }
   }

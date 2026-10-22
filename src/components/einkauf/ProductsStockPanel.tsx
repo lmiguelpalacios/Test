@@ -11,7 +11,7 @@ import { DemoBanner } from '../DemoBanner'
 import { PageHeader } from '../PageHeader'
 
 export function ProductsStockPanel() {
-  const { sales, purchase, upsertProduct } = useAccounting()
+  const { sales, purchase, upsertProduct, vatEnabled } = useAccounting()
   const snapshot = buildStockSnapshot(sales.products, purchase.stockMovements)
   const [sku, setSku] = useState('')
   const [name, setName] = useState('')
@@ -28,7 +28,8 @@ export function ProductsStockPanel() {
     setError(null)
     const ek = parseEuroInput(purchasePrice)
     const vk = parseEuroInput(salePrice)
-    if (!sku.trim() || !name.trim() || ek === null || vk === null || !isVatRate(vatRate)) {
+    const rate = vatEnabled ? vatRate : 0
+    if (!sku.trim() || !name.trim() || ek === null || vk === null || !isVatRate(rate)) {
       setError('Bitte Artikelnummer, Name, EK und VK gültig ausfüllen.')
       return
     }
@@ -37,7 +38,7 @@ export function ProductsStockPanel() {
       name,
       netPurchasePriceCents: ek,
       netUnitPriceCents: vk,
-      vatRate,
+      vatRate: rate,
       tracksStock,
       minStockQuantity: minStock ? Number(minStock) : undefined,
     })
@@ -151,17 +152,19 @@ export function ProductsStockPanel() {
                 required
               />
             </label>
-            <label className="form-field">
-              <span>USt</span>
-              <select
-                value={vatRate}
-                onChange={(e) => setVatRate(Number(e.target.value))}
-              >
-                <option value={0}>0 %</option>
-                <option value={7}>7 %</option>
-                <option value={19}>19 %</option>
-              </select>
-            </label>
+            {vatEnabled ? (
+              <label className="form-field">
+                <span>USt</span>
+                <select
+                  value={vatRate}
+                  onChange={(e) => setVatRate(Number(e.target.value))}
+                >
+                  <option value={0}>0 %</option>
+                  <option value={7}>7 %</option>
+                  <option value={19}>19 %</option>
+                </select>
+              </label>
+            ) : null}
             <label className="form-field">
               <span>Mindestbestand</span>
               <input value={minStock} onChange={(e) => setMinStock(e.target.value)} />
