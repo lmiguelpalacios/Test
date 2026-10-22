@@ -1,4 +1,5 @@
 import { Outlet } from 'react-router-dom'
+import { AbschlussStudio } from '../components/abschluss/AbschlussStudio'
 import { AccountLedgerPanel } from '../components/berichte/AccountLedgerPanel'
 import { BalanceSheetPanel } from '../components/berichte/BalanceSheetPanel'
 import { IncomeStatementPanel } from '../components/berichte/IncomeStatementPanel'
@@ -32,4 +33,8 @@ export function BalanceSheetPage() {
 
 export function OpenItemsPage() {
   return <OpenItemsPanel />
+}
+
+export function AbschlussPage() {
+  return <AbschlussStudio />
 }

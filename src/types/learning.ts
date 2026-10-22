@@ -1,4 +1,10 @@
-import type { VatRate } from './accounting'
+import type {
+  BalanceSheetDraft,
+  IncomeStatementDraft,
+  TAccountDraft,
+} from '../abschluss/types'
+import type { JournalEntry, VatRate } from './accounting'
+import type { DateRange } from '../reports/period'
 
 export type LearningTopic =
   | 'aktiv_passiv'
@@ -12,6 +18,8 @@ export type LearningTopic =
   | 'bilanz_guv'
 
 export type LearningDifficulty = 'leicht' | 'mittel' | 'schwer'
+
+export type LearningTaskKind = 'booking' | 't_accounts' | 'bilanz' | 'guv'
 
 export interface LearningSolution {
   debitAccount: string
@@ -27,7 +35,7 @@ export interface LearningEffects {
   result?: string
 }
 
-export interface LearningTask {
+interface LearningTaskBase {
   id: string
   number: number
   title: string
@@ -35,15 +43,48 @@ export interface LearningTask {
   difficulty: LearningDifficulty
   /** Realistischer Geschäftsvorfall (Nordlicht). */
   scenario: string
-  /** Musterlösung — Demo-/Lerninhalt. */
-  solution: LearningSolution
   explanation: string
   effects: LearningEffects
-  /** Max. Punkte (Konten, Betrag, USt). */
+  /** Max. Punkte. */
   maxPoints: number
+  kind: LearningTaskKind
+}
+
+export interface BookingLearningTask extends LearningTaskBase {
+  kind: 'booking'
+  /** Musterlösung — Demo-/Lerninhalt. */
+  solution: LearningSolution
   /** Optionaler Übungsbuchungsschritt ins echte Journal. */
   allowPracticeJournalPost: boolean
 }
+
+export interface TAccountsLearningTask extends LearningTaskBase {
+  kind: 't_accounts'
+  /** Eingebettetes Mini-Journal (nicht Live-Org). */
+  fixtureEntries: JournalEntry[]
+  asOf: string
+  allowPracticeJournalPost: false
+}
+
+export interface BilanzLearningTask extends LearningTaskBase {
+  kind: 'bilanz'
+  fixtureEntries: JournalEntry[]
+  asOf: string
+  allowPracticeJournalPost: false
+}
+
+export interface GuvLearningTask extends LearningTaskBase {
+  kind: 'guv'
+  fixtureEntries: JournalEntry[]
+  range: DateRange
+  allowPracticeJournalPost: false
+}
+
+export type LearningTask =
+  | BookingLearningTask
+  | TAccountsLearningTask
+  | BilanzLearningTask
+  | GuvLearningTask
 
 export interface LearningAnswer {
   debitAccount: string
@@ -52,8 +93,15 @@ export interface LearningAnswer {
   vatRate: VatRate
 }
 
+/** Antwort-Payload für submitLearningAnswer (diskriminiert nach Task-Kind). */
+export type LearningSubmission =
+  | { kind: 'booking'; answer: LearningAnswer }
+  | { kind: 't_accounts'; draft: TAccountDraft[] }
+  | { kind: 'bilanz'; draft: BalanceSheetDraft }
+  | { kind: 'guv'; draft: IncomeStatementDraft }
+
 export interface CriterionResult {
-  id: 'debit' | 'credit' | 'amount' | 'vat'
+  id: string
   label: string
   ok: boolean
   feedback: string
@@ -101,4 +149,11 @@ export const LEARNING_DIFFICULTY_LABELS: Record<LearningDifficulty, string> = {
   leicht: 'Leicht',
   mittel: 'Mittel',
   schwer: 'Schwer',
+}
+
+export const LEARNING_KIND_LABELS: Record<LearningTaskKind, string> = {
+  booking: 'Buchung',
+  t_accounts: 'T-Konten',
+  bilanz: 'Bilanz',
+  guv: 'GuV',
 }

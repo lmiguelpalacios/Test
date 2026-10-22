@@ -3,16 +3,35 @@ import { Link, useParams } from 'react-router-dom'
 import { useAccounting } from '../../accounting/AccountingContext'
 import { formatCents, parseEuroInput } from '../../accounting/money'
 import { isVatRate } from '../../accounting/vat'
+import { expectedTAccountsAsDraft } from '../../abschluss/expectedBalances'
+import { balanceSheetSolutionDraft } from '../../abschluss/evaluateBalanceSheet'
+import { incomeStatementSolutionDraft } from '../../abschluss/evaluateIncomeStatement'
+import type {
+  BalanceSheetDraft,
+  IncomeStatementDraft,
+  TAccountDraft,
+} from '../../abschluss/types'
 import { chartOfAccounts } from '../../data/chart-of-accounts'
 import { getLearningTaskById } from '../../data/learning-tasks'
 import type { EvaluationResult } from '../../types/learning'
 import type { VatRate } from '../../types/accounting'
 import {
   LEARNING_DIFFICULTY_LABELS,
+  LEARNING_KIND_LABELS,
   LEARNING_TOPIC_LABELS,
 } from '../../types/learning'
 import { DemoBanner } from '../DemoBanner'
 import { PageHeader } from '../PageHeader'
+import { AbschlussFeedback } from '../abschluss/AbschlussFeedback'
+import {
+  BalanceSheetBuilder,
+  createEmptyBalanceSheetDraft,
+} from '../abschluss/BalanceSheetBuilder'
+import {
+  createEmptyIncomeStatementDraft,
+  IncomeStatementBuilder,
+} from '../abschluss/IncomeStatementBuilder'
+import { TAccountBoard } from '../abschluss/TAccountBoard'
 
 export function LearningTaskDetail() {
   const { taskId } = useParams()
@@ -30,6 +49,13 @@ export function LearningTaskDetail() {
   const [creditAccount, setCreditAccount] = useState('1600')
   const [netInput, setNetInput] = useState('')
   const [vatRate, setVatRate] = useState<VatRate>(19)
+  const [tDraft, setTDraft] = useState<TAccountDraft[]>([])
+  const [bilanzDraft, setBilanzDraft] = useState<BalanceSheetDraft>(
+    createEmptyBalanceSheetDraft,
+  )
+  const [guvDraft, setGuvDraft] = useState<IncomeStatementDraft>(
+    createEmptyIncomeStatementDraft,
+  )
   const [evaluation, setEvaluation] = useState<EvaluationResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
@@ -52,7 +78,7 @@ export function LearningTaskDetail() {
     )
   }
 
-  const handleCheck = (event: FormEvent) => {
+  const handleCheckBooking = (event: FormEvent) => {
     event.preventDefault()
     setError(null)
     setMessage(null)
@@ -66,10 +92,13 @@ export function LearningTaskDetail() {
       return
     }
     void submitLearningAnswer(task.id, {
-      debitAccount,
-      creditAccount,
-      netAmountCents,
-      vatRate,
+      kind: 'booking',
+      answer: {
+        debitAccount,
+        creditAccount,
+        netAmountCents,
+        vatRate,
+      },
     }).then((result) => {
       if (!result.ok || !result.evaluation) {
         setError(result.ok ? 'Bewertung fehlgeschlagen.' : result.message)
@@ -81,6 +110,45 @@ export function LearningTaskDetail() {
         setMessage('Aufgabe vollständig gelöst und als abgeschlossen gespeichert.')
       }
     })
+  }
+
+  const handleCheckAbschluss = () => {
+    setError(null)
+    setMessage(null)
+    const submission =
+      task.kind === 't_accounts'
+        ? ({ kind: 't_accounts' as const, draft: tDraft })
+        : task.kind === 'bilanz'
+          ? ({ kind: 'bilanz' as const, draft: bilanzDraft })
+          : task.kind === 'guv'
+            ? ({ kind: 'guv' as const, draft: guvDraft })
+            : null
+    if (!submission) {
+      setError('Unbekannter Aufgabentyp.')
+      return
+    }
+    void submitLearningAnswer(task.id, submission).then((result) => {
+      if (!result.ok || !result.evaluation) {
+        setError(result.ok ? 'Bewertung fehlgeschlagen.' : result.message)
+        return
+      }
+      setEvaluation(result.evaluation)
+      if (result.evaluation.fullyCorrect) {
+        setShowSolution(true)
+        setMessage('Aufgabe vollständig gelöst und als abgeschlossen gespeichert.')
+      }
+    })
+  }
+
+  const handleShowMuster = () => {
+    setShowSolution(true)
+    if (task.kind === 't_accounts') {
+      setTDraft(expectedTAccountsAsDraft(task.fixtureEntries, task.asOf))
+    } else if (task.kind === 'bilanz') {
+      setBilanzDraft(balanceSheetSolutionDraft(task.fixtureEntries, task.asOf))
+    } else if (task.kind === 'guv') {
+      setGuvDraft(incomeStatementSolutionDraft(task.fixtureEntries, task.range))
+    }
   }
 
   const handleComplete = () => {
@@ -113,7 +181,7 @@ export function LearningTaskDetail() {
       <DemoBanner detail="Prüfen speichert nur den Lernfortschritt — keine Journalbuchung ohne späteren Bestätigungsschritt." />
       <PageHeader
         title={`Aufgabe ${task.number}: ${task.title}`}
-        subtitle={`${LEARNING_TOPIC_LABELS[task.topic]} · ${LEARNING_DIFFICULTY_LABELS[task.difficulty]}`}
+        subtitle={`${LEARNING_TOPIC_LABELS[task.topic]} · ${LEARNING_DIFFICULTY_LABELS[task.difficulty]} · ${LEARNING_KIND_LABELS[task.kind]}`}
         actions={
           <Link to="/lernmodus" className="btn btn-secondary">
             Zur Übersicht
@@ -123,10 +191,22 @@ export function LearningTaskDetail() {
 
       <section className="panel">
         <div className="panel-header">
-          <h2 className="panel-title">Geschäftsvorfall</h2>
+          <h2 className="panel-title">
+            {task.kind === 'booking' ? 'Geschäftsvorfall' : 'Aufgabenstellung'}
+          </h2>
           <span className="panel-badge">Demo-Lernaufgabe</span>
         </div>
         <p>{task.scenario}</p>
+        {task.kind !== 'booking' ? (
+          <p className="panel-note">
+            Bewertung gegen eingebettetes Mini-Journal (
+            {task.fixtureEntries.length} Buchungen
+            {task.kind === 'guv'
+              ? ` · ${task.range.from}–${task.range.to}`
+              : ` · Stichtag ${task.asOf}`}
+            ) — nicht gegen das Live-Org-Journal.
+          </p>
+        ) : null}
         {progress ? (
           <p className="panel-note">
             Versuche: {progress.attempts} · beste Punkte: {progress.bestScore}/
@@ -137,108 +217,161 @@ export function LearningTaskDetail() {
         ) : null}
       </section>
 
-      <form className="panel booking-form" onSubmit={handleCheck}>
-        <div className="panel-header">
-          <h2 className="panel-title">Deine Buchung</h2>
-          <span className="panel-badge">ohne Journalwirkung beim Prüfen</span>
-        </div>
-        {error ? (
-          <div className="form-alert error" role="alert">
-            {error}
+      {task.kind === 'booking' ? (
+        <form className="panel booking-form" onSubmit={handleCheckBooking}>
+          <div className="panel-header">
+            <h2 className="panel-title">Deine Buchung</h2>
+            <span className="panel-badge">ohne Journalwirkung beim Prüfen</span>
           </div>
-        ) : null}
-        {message ? (
-          <div className="form-alert" role="status">
-            {message}
-          </div>
-        ) : null}
-
-        <div className="form-grid">
-          <label className="form-field">
-            <span>Sollkonto</span>
-            <select
-              value={debitAccount}
-              onChange={(event) => setDebitAccount(event.target.value)}
-            >
-              {chartOfAccounts.map((account) => (
-                <option key={account.number} value={account.number}>
-                  {account.number} — {account.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="form-field">
-            <span>Habenkonto</span>
-            <select
-              value={creditAccount}
-              onChange={(event) => setCreditAccount(event.target.value)}
-            >
-              {chartOfAccounts.map((account) => (
-                <option key={account.number} value={account.number}>
-                  {account.number} — {account.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="form-field">
-            <span>Nettobetrag (€)</span>
-            <input
-              value={netInput}
-              onChange={(event) => setNetInput(event.target.value)}
-              inputMode="decimal"
-              placeholder="z. B. 1000,00"
-              required
-            />
-          </label>
-          <label className="form-field">
-            <span>USt-Satz</span>
-            <select
-              value={vatRate}
-              onChange={(event) => setVatRate(Number(event.target.value) as VatRate)}
-            >
-              <option value={0}>0 %</option>
-              <option value={7}>7 %</option>
-              <option value={19}>19 %</option>
-            </select>
-          </label>
-        </div>
-        {preview !== null ? (
-          <p className="panel-note">Netto-Vorschau: {formatCents(preview)}</p>
-        ) : null}
-
-        <div className="page-actions-row">
-          <button type="submit" className="btn btn-primary">
-            Antwort prüfen
-          </button>
-          {evaluation && !evaluation.fullyCorrect && progress && progress.bestScore > 0 ? (
-            <button type="button" className="btn btn-secondary" onClick={handleComplete}>
-              Trotzdem abschließen
-            </button>
+          {error ? (
+            <div className="form-alert error" role="alert">
+              {error}
+            </div>
           ) : null}
-        </div>
-      </form>
+          {message ? (
+            <div className="form-alert" role="status">
+              {message}
+            </div>
+          ) : null}
 
-      {evaluation ? (
+          <div className="form-grid">
+            <label className="form-field">
+              <span>Sollkonto</span>
+              <select
+                value={debitAccount}
+                onChange={(event) => setDebitAccount(event.target.value)}
+              >
+                {chartOfAccounts.map((account) => (
+                  <option key={account.number} value={account.number}>
+                    {account.number} — {account.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="form-field">
+              <span>Habenkonto</span>
+              <select
+                value={creditAccount}
+                onChange={(event) => setCreditAccount(event.target.value)}
+              >
+                {chartOfAccounts.map((account) => (
+                  <option key={account.number} value={account.number}>
+                    {account.number} — {account.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="form-field">
+              <span>Nettobetrag (€)</span>
+              <input
+                value={netInput}
+                onChange={(event) => setNetInput(event.target.value)}
+                inputMode="decimal"
+                placeholder="z. B. 1000,00"
+                required
+              />
+            </label>
+            <label className="form-field">
+              <span>USt-Satz</span>
+              <select
+                value={vatRate}
+                onChange={(event) =>
+                  setVatRate(Number(event.target.value) as VatRate)
+                }
+              >
+                <option value={0}>0 %</option>
+                <option value={7}>7 %</option>
+                <option value={19}>19 %</option>
+              </select>
+            </label>
+          </div>
+          {preview !== null ? (
+            <p className="panel-note">Netto-Vorschau: {formatCents(preview)}</p>
+          ) : null}
+
+          <div className="page-actions-row">
+            <button type="submit" className="btn btn-primary">
+              Antwort prüfen
+            </button>
+            {evaluation &&
+            !evaluation.fullyCorrect &&
+            progress &&
+            progress.bestScore > 0 ? (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={handleComplete}
+              >
+                Trotzdem abschließen
+              </button>
+            ) : null}
+          </div>
+        </form>
+      ) : (
         <section className="panel">
           <div className="panel-header">
-            <h2 className="panel-title">Feedback</h2>
-            <span className="panel-badge">
-              {evaluation.score}/{evaluation.maxPoints} Punkte
-            </span>
+            <h2 className="panel-title">
+              {task.kind === 't_accounts'
+                ? 'T-Konten aufstellen'
+                : task.kind === 'bilanz'
+                  ? 'Bilanz aufstellen'
+                  : 'GuV aufstellen'}
+            </h2>
+            <span className="panel-badge">Mini-Journal · Prüfen ohne Spoilern</span>
           </div>
-          <p>{evaluation.summary}</p>
-          <ul className="placeholder-list">
-            {evaluation.criteria.map((criterion) => (
-              <li key={criterion.id}>
-                <strong>
-                  {criterion.ok ? '✓' : '✗'} {criterion.label}:
-                </strong>{' '}
-                {criterion.feedback}
-              </li>
-            ))}
-          </ul>
+          {error ? (
+            <div className="form-alert error" role="alert">
+              {error}
+            </div>
+          ) : null}
+          {message ? (
+            <div className="form-alert" role="status">
+              {message}
+            </div>
+          ) : null}
+
+          {task.kind === 't_accounts' ? (
+            <TAccountBoard value={tDraft} onChange={setTDraft} />
+          ) : null}
+          {task.kind === 'bilanz' ? (
+            <BalanceSheetBuilder value={bilanzDraft} onChange={setBilanzDraft} />
+          ) : null}
+          {task.kind === 'guv' ? (
+            <IncomeStatementBuilder value={guvDraft} onChange={setGuvDraft} />
+          ) : null}
+
+          <div className="page-actions-row" style={{ marginTop: '1rem' }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={handleCheckAbschluss}
+            >
+              Prüfen
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={handleShowMuster}
+            >
+              Musterlösung zeigen
+            </button>
+            {evaluation &&
+            !evaluation.fullyCorrect &&
+            progress &&
+            progress.bestScore > 0 ? (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={handleComplete}
+              >
+                Trotzdem abschließen
+              </button>
+            ) : null}
+          </div>
         </section>
-      ) : null}
+      )}
+
+      {evaluation ? <AbschlussFeedback evaluation={evaluation} /> : null}
 
       {(showSolution || progress?.completed || evaluation?.fullyCorrect) && (
         <section className="panel">
@@ -246,22 +379,53 @@ export function LearningTaskDetail() {
             <h2 className="panel-title">Musterlösung & Wirkung</h2>
             <span className="panel-badge">Demo · Lerninhalt</span>
           </div>
-          <p className="panel-note">
-            Soll <code>{task.solution.debitAccount}</code> / Haben{' '}
-            <code>{task.solution.creditAccount}</code> · Netto{' '}
-            {formatCents(task.solution.netAmountCents)} · USt {task.solution.vatRate} %
-          </p>
+          {task.kind === 'booking' ? (
+            <p className="panel-note">
+              Soll <code>{task.solution.debitAccount}</code> / Haben{' '}
+              <code>{task.solution.creditAccount}</code> · Netto{' '}
+              {formatCents(task.solution.netAmountCents)} · USt{' '}
+              {task.solution.vatRate} %
+            </p>
+          ) : null}
+          {task.kind === 't_accounts' ? (
+            <TAccountBoard
+              value={expectedTAccountsAsDraft(task.fixtureEntries, task.asOf)}
+              onChange={() => undefined}
+              readOnly
+            />
+          ) : null}
+          {task.kind === 'bilanz' ? (
+            <BalanceSheetBuilder
+              value={balanceSheetSolutionDraft(task.fixtureEntries, task.asOf)}
+              onChange={() => undefined}
+              readOnly
+            />
+          ) : null}
+          {task.kind === 'guv' ? (
+            <IncomeStatementBuilder
+              value={incomeStatementSolutionDraft(
+                task.fixtureEntries,
+                task.range,
+              )}
+              onChange={() => undefined}
+              readOnly
+            />
+          ) : null}
           <p>{task.explanation}</p>
           <ul className="placeholder-list">
             {task.effects.assets ? <li>Aktiva: {task.effects.assets}</li> : null}
             {task.effects.liabilities ? (
               <li>Passiva: {task.effects.liabilities}</li>
             ) : null}
-            {task.effects.equity ? <li>Eigenkapital: {task.effects.equity}</li> : null}
+            {task.effects.equity ? (
+              <li>Eigenkapital: {task.effects.equity}</li>
+            ) : null}
             {task.effects.result ? <li>Ergebnis: {task.effects.result}</li> : null}
           </ul>
 
-          {task.allowPracticeJournalPost && capabilities.learningPracticeJournal ? (
+          {task.kind === 'booking' &&
+          task.allowPracticeJournalPost &&
+          capabilities.learningPracticeJournal ? (
             <div className="page-actions-row">
               <button
                 type="button"
@@ -276,7 +440,9 @@ export function LearningTaskDetail() {
               </Link>
             </div>
           ) : null}
-          {task.allowPracticeJournalPost && !capabilities.learningPracticeJournal ? (
+          {task.kind === 'booking' &&
+          task.allowPracticeJournalPost &&
+          !capabilities.learningPracticeJournal ? (
             <p className="form-hint">
               Übungsbuchung ins Journal ist im Online-/Preview-Modus für v1 deaktiviert
               (RPC <code>post_learning_practice</code> noch Stub). Bewertung und
