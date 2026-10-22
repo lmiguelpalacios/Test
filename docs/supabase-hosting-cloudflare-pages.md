@@ -69,9 +69,23 @@ npm run build && npm run preview
 
 ---
 
-## Supabase Auth URL config (review)
+## Supabase Auth URL config
 
-Without this, confirmation emails open **localhost** even when the app passes `emailRedirectTo`.
+Without this, confirmation emails open **localhost** even when the app passes `emailRedirectTo` (GoTrue falls back to Site URL when the redirect is missing from the allow-list).
+
+### Production → handels (`kicwytgtrdadrhhlfrnn`) — **required**
+
+| Setting | Value |
+|---------|--------|
+| Project | `kicwytgtrdadrhhlfrnn` (nordlicht-handels) only |
+| Site URL | `https://nordlicht-preview.pages.dev` |
+| Redirect URLs | `https://nordlicht-preview.pages.dev/**` (+ optional `https://a7b308ba.nordlicht-preview.pages.dev/**`) |
+| Dashboard path | Authentication → URL Configuration |
+| App code | `signUp` options `emailRedirectTo` = `${window.location.origin}/` (already in Production bundle) |
+
+Agents cannot set this without `SUPABASE_ACCESS_TOKEN` (Management API / `supabase config push`). Cloudflare Pages cannot set Supabase Auth URLs.
+
+### Preview → review (`tbxdoapspjhabcsxgllx`)
 
 | Setting | Value |
 |---------|--------|
@@ -79,9 +93,8 @@ Without this, confirmation emails open **localhost** even when the app passes `e
 | Site URL | `https://nordlicht-preview.pages.dev` |
 | Redirect URLs | `https://nordlicht-preview.pages.dev/**`, `https://preview.nordlicht-preview.pages.dev/**` |
 | Dashboard path | Authentication → URL Configuration |
-| App code | `signUp` options `emailRedirectTo` = current origin + `/` |
 
-After changing Site URL, resend confirmation for any user who already got a localhost link.
+After changing Site URL, resend confirmation for any user who already got a localhost link. Review Auth users are **not** valid on handels (separate `auth.users`).
 
 ---
 
