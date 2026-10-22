@@ -2,6 +2,7 @@ import { useMemo, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useAccounting } from '../../accounting/AccountingContext'
 import { formatCents, parseEuroInput } from '../../accounting/money'
+import { displayVatRate } from '../../accounting/vat'
 import { calculateInvoiceTotals } from '../../sales/invoiceMath'
 import {
   deriveVendorInvoiceStatus,
@@ -14,7 +15,7 @@ import { InvoiceStatusBadge } from '../verkauf/InvoiceStatusBadge'
 
 export function VendorInvoiceDetail() {
   const { invoiceId } = useParams()
-  const { purchase, bookVendorInvoice, recordVendorPayment } = useAccounting()
+  const { purchase, bookVendorInvoice, recordVendorPayment, vatEnabled } = useAccounting()
   const invoice = purchase.vendorInvoices.find((item) => item.id === invoiceId)
   const supplier = purchase.suppliers.find((item) => item.id === invoice?.supplierId)
   const [message, setMessage] = useState<string | null>(null)
@@ -32,10 +33,14 @@ export function VendorInvoiceDetail() {
         description: line.description,
         quantity: line.quantity,
         netUnitPriceCents: line.netUnitPriceCents,
-        vatRate: line.vatRate,
+        vatRate: displayVatRate(
+          line.vatRate,
+          vatEnabled,
+          (invoice?.journalEntryIds.length ?? 0) > 0,
+        ),
       })),
     )
-  }, [invoice])
+  }, [invoice, vatEnabled])
   const status = invoice
     ? deriveVendorInvoiceStatus(invoice, purchase.vendorPayments)
     : null
@@ -126,14 +131,18 @@ export function VendorInvoiceDetail() {
               <span className="muted">Netto</span>
               <strong>{formatCents(totals.netCents)}</strong>
             </div>
-            <div>
-              <span className="muted">Vorsteuer</span>
-              <strong>{formatCents(totals.taxCents)}</strong>
-            </div>
-            <div>
-              <span className="muted">Brutto</span>
-              <strong>{formatCents(totals.grossCents)}</strong>
-            </div>
+            {vatEnabled || totals.taxCents > 0 ? (
+              <>
+                <div>
+                  <span className="muted">Vorsteuer</span>
+                  <strong>{formatCents(totals.taxCents)}</strong>
+                </div>
+                <div>
+                  <span className="muted">Brutto</span>
+                  <strong>{formatCents(totals.grossCents)}</strong>
+                </div>
+              </>
+            ) : null}
             <div>
               <span className="muted">Offen</span>
               <strong>{status === 'entwurf' ? '—' : formatCents(open)}</strong>

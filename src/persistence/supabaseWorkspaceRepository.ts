@@ -585,28 +585,55 @@ export class SupabaseWorkspaceRepository implements WorkspaceRepository {
       sales: WorkspaceSnapshot['sales']
       purchase: WorkspaceSnapshot['purchase']
       learning: WorkspaceSnapshot['learning']
+      vatEnabled?: boolean
     }
     sourceLabel?: string
   }): Promise<ActionResult & { batchId?: string; alreadyImported?: boolean }> {
+    const vatEnabled = payload.workspace.vatEnabled !== false
     const body = {
-      version: 4,
+      version: 5,
+      vatEnabled,
       entries: payload.workspace.entries,
       sales: payload.workspace.sales,
       purchase: payload.workspace.purchase,
       learning: payload.workspace.learning,
     }
+    const applyVatFlag = async (): Promise<ActionResult> => {
+      const { data: updated, error: flagError } = await this.client
+        .from('organizations')
+        .update({ vat_enabled: vatEnabled })
+        .eq('id', this.organizationId)
+        .select('id')
+      if (flagError) {
+        return {
+          ok: false,
+          message: `Umsatzsteuer-Schalter nicht gesetzt: ${flagError.message}`,
+        }
+      }
+      if (!updated?.length) {
+        return {
+          ok: false,
+          message: 'Umsatzsteuer-Schalter nicht gesetzt (nur Inhaber).',
+        }
+      }
+      return { ok: true }
+    }
     const { data, error } = await this.client.rpc('import_workspace', {
       p_organization_id: this.organizationId,
       p_content_hash: payload.contentHash,
       p_payload: body,
-      p_source_label: payload.sourceLabel ?? 'workspace-v4',
+      p_source_label: payload.sourceLabel ?? 'workspace-v5',
     })
     if (error) {
       if (/already_imported/i.test(error.message)) {
+        const flag = await applyVatFlag()
+        if (!flag.ok) return flag
         return { ok: true, alreadyImported: true, batchId: undefined }
       }
       return { ok: false, message: rpcErrorMessage(error) }
     }
+    const flag = await applyVatFlag()
+    if (!flag.ok) return flag
     return { ok: true, batchId: data ? String(data) : undefined }
   }
 }

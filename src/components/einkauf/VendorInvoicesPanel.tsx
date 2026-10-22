@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useAccounting } from '../../accounting/AccountingContext'
 import { formatCents } from '../../accounting/money'
+import { displayVatRate } from '../../accounting/vat'
 import { calculateInvoiceTotals } from '../../sales/invoiceMath'
 import {
   deriveVendorInvoiceStatus,
@@ -12,7 +13,7 @@ import { PageHeader } from '../PageHeader'
 import { InvoiceStatusBadge } from '../verkauf/InvoiceStatusBadge'
 
 export function VendorInvoicesPanel() {
-  const { purchase } = useAccounting()
+  const { purchase, vatEnabled } = useAccounting()
   const rows = [...purchase.vendorInvoices].sort((a, b) =>
     b.issueDate.localeCompare(a.issueDate),
   )
@@ -59,7 +60,11 @@ export function VendorInvoicesPanel() {
                     description: line.description,
                     quantity: line.quantity,
                     netUnitPriceCents: line.netUnitPriceCents,
-                    vatRate: line.vatRate,
+                    vatRate: displayVatRate(
+                      line.vatRate,
+                      vatEnabled,
+                      invoice.journalEntryIds.length > 0,
+                    ),
                   })),
                 )
                 const status = deriveVendorInvoiceStatus(

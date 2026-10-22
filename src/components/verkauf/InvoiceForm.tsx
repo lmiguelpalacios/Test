@@ -30,7 +30,7 @@ function emptyLine(): LineDraft {
 
 export function InvoiceForm() {
   const navigate = useNavigate()
-  const { sales, saveDraftInvoice } = useAccounting()
+  const { sales, saveDraftInvoice, vatEnabled } = useAccounting()
   const [customerId, setCustomerId] = useState(sales.customers[0]?.id ?? '')
   const [issueDate, setIssueDate] = useState('2026-10-09')
   const [dueDate, setDueDate] = useState('2026-10-23')
@@ -49,11 +49,11 @@ export function InvoiceForm() {
           description: line.description.trim(),
           quantity,
           netUnitPriceCents: net,
-          vatRate: line.vatRate,
+          vatRate: vatEnabled ? line.vatRate : 0,
         },
       ]
     })
-  }, [lines])
+  }, [lines, vatEnabled])
 
   const totals = useMemo(() => {
     try {
@@ -74,7 +74,7 @@ export function InvoiceForm() {
           productId,
           description: product.name,
           netUnitPrice: (product.netUnitPriceCents / 100).toFixed(2).replace('.', ','),
-          vatRate: product.vatRate,
+          vatRate: vatEnabled ? product.vatRate : 0,
         }
       }),
     )
@@ -222,25 +222,27 @@ export function InvoiceForm() {
                 required
               />
             </label>
-            <label className="form-field">
-              <span>USt</span>
-              <select
-                value={line.vatRate}
-                onChange={(event) => {
-                  const value = Number(event.target.value)
-                  if (!isVatRate(value)) return
-                  setLines((prev) =>
-                    prev.map((item, i) =>
-                      i === index ? { ...item, vatRate: value } : item,
-                    ),
-                  )
-                }}
-              >
-                <option value={0}>0 %</option>
-                <option value={7}>7 %</option>
-                <option value={19}>19 %</option>
-              </select>
-            </label>
+            {vatEnabled ? (
+              <label className="form-field">
+                <span>USt</span>
+                <select
+                  value={line.vatRate}
+                  onChange={(event) => {
+                    const value = Number(event.target.value)
+                    if (!isVatRate(value)) return
+                    setLines((prev) =>
+                      prev.map((item, i) =>
+                        i === index ? { ...item, vatRate: value } : item,
+                      ),
+                    )
+                  }}
+                >
+                  <option value={0}>0 %</option>
+                  <option value={7}>7 %</option>
+                  <option value={19}>19 %</option>
+                </select>
+              </label>
+            ) : null}
             {lines.length > 1 ? (
               <button
                 type="button"
@@ -261,14 +263,20 @@ export function InvoiceForm() {
           <span className="muted">Netto</span>
           <strong>{totals ? formatCents(totals.netCents) : '—'}</strong>
         </div>
-        <div>
-          <span className="muted">USt</span>
-          <strong>{totals ? formatCents(totals.taxCents) : '—'}</strong>
-        </div>
-        <div>
-          <span className="muted">Brutto</span>
-          <strong>{totals ? formatCents(totals.grossCents) : '—'}</strong>
-        </div>
+        {vatEnabled ? (
+          <>
+            <div>
+              <span className="muted">USt</span>
+              <strong>{totals ? formatCents(totals.taxCents) : '—'}</strong>
+            </div>
+            <div>
+              <span className="muted">Brutto</span>
+              <strong>{totals ? formatCents(totals.grossCents) : '—'}</strong>
+            </div>
+          </>
+        ) : (
+          <p className="panel-note">Beträge bleiben netto. Umsatzsteuer ist aus.</p>
+        )}
       </div>
 
       <p className="form-hint">

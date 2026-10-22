@@ -35,10 +35,10 @@ npm test
 
 ### Buchhaltung, Verkauf, Einkauf, Berichte, Lernmodus & Persistenz
 
-- Dual-Mode: lokal Workspace-`localStorage` v4 **oder** Supabase (Auth/Org/RPC) — kein stiller Hybrid
+- Dual-Mode: lokal Workspace-`localStorage` v5 **oder** Supabase (Auth/Org/RPC) — kein stiller Hybrid
 - Verkauf / Einkauf / Berichte; online: Buchung/Zahlung über DEFINER-RPCs
 - Lernmodus: Bewertung lokal/online; Übungsjournal-Übernahme online noch gesperrt
-- Expliziter Workspace-v4-Import-Wizard unter Einstellungen (Supabase/Owner)
+- Expliziter Workspace-Import-Wizard unter Einstellungen (Supabase/Owner); setzt `organizations.vat_enabled`
 - Dashboard: Journal-Kennzahlen; YTD-Grafik bleibt separate Demo
 
 

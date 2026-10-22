@@ -9,7 +9,7 @@ export function ModeBadge({ compact = false }: { compact?: boolean }) {
 
   if (mode === 'local') {
     return (
-      <span className="demo-chip" title="Workspace v4 im Browser (localStorage)">
+      <span className="demo-chip" title="Workspace v5 im Browser (localStorage)">
         {compact ? 'Lokal' : 'Lokaler Demo-Modus'}
       </span>
     )

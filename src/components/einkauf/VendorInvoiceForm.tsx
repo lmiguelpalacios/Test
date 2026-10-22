@@ -29,7 +29,7 @@ function emptyLine(): LineDraft {
 
 export function VendorInvoiceForm() {
   const navigate = useNavigate()
-  const { purchase, saveVendorInvoice } = useAccounting()
+  const { purchase, saveVendorInvoice, vatEnabled } = useAccounting()
   const [supplierId, setSupplierId] = useState(purchase.suppliers[0]?.id ?? '')
   const [externalNumber, setExternalNumber] = useState('')
   const [issueDate, setIssueDate] = useState('2026-10-09')
@@ -54,7 +54,7 @@ export function VendorInvoiceForm() {
         description: line.description.trim(),
         quantity,
         netUnitPriceCents: net,
-        vatRate: line.vatRate,
+        vatRate: vatEnabled ? line.vatRate : 0,
         expenseAccount: line.expenseAccount,
       })
     }
@@ -182,25 +182,27 @@ export function VendorInvoiceForm() {
                 required
               />
             </label>
-            <label className="form-field">
-              <span>USt</span>
-              <select
-                value={line.vatRate}
-                onChange={(e) => {
-                  const value = Number(e.target.value)
-                  if (!isVatRate(value)) return
-                  setLines((prev) =>
-                    prev.map((item, i) =>
-                      i === index ? { ...item, vatRate: value } : item,
-                    ),
-                  )
-                }}
-              >
-                <option value={0}>0 %</option>
-                <option value={7}>7 %</option>
-                <option value={19}>19 %</option>
-              </select>
-            </label>
+            {vatEnabled ? (
+              <label className="form-field">
+                <span>USt</span>
+                <select
+                  value={line.vatRate}
+                  onChange={(e) => {
+                    const value = Number(e.target.value)
+                    if (!isVatRate(value)) return
+                    setLines((prev) =>
+                      prev.map((item, i) =>
+                        i === index ? { ...item, vatRate: value } : item,
+                      ),
+                    )
+                  }}
+                >
+                  <option value={0}>0 %</option>
+                  <option value={7}>7 %</option>
+                  <option value={19}>19 %</option>
+                </select>
+              </label>
+            ) : null}
             <label className="form-field">
               <span>Aufwandskonto</span>
               <select

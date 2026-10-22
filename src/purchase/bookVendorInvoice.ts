@@ -26,7 +26,15 @@ export type BookVendorResult =
 export function buildVendorInvoiceBookingDrafts(
   invoice: VendorInvoice,
   supplier: Supplier | undefined,
+  options?: { vatEnabled?: boolean },
 ): BookVendorResult {
+  const vatEnabled = options?.vatEnabled !== false
+  if (!vatEnabled) {
+    invoice = {
+      ...invoice,
+      lines: invoice.lines.map((line) => ({ ...line, vatRate: 0 as const })),
+    }
+  }
   if (invoice.journalEntryIds.length > 0) {
     return {
       ok: false,

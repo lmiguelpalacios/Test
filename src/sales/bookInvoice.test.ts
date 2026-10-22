@@ -51,6 +51,24 @@ describe('Rechnungsbuchung', () => {
     )
   })
 
+  it('bucht bei ausgeschalteter Umsatzsteuer netto ohne 1776', () => {
+    const result = buildInvoiceBookingDrafts(draftInvoice, demoCustomers[0], {
+      vatEnabled: false,
+    })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.drafts).toHaveLength(1)
+    expect(result.drafts[0]?.vatRate).toBe(0)
+    expect(result.drafts[0]?.creditAccount).toBe('8000')
+    const validated = validateJournalEntry(result.drafts[0]!, chartOfAccounts, {
+      vatEnabled: false,
+    })
+    expect(validated.ok).toBe(true)
+    if (!validated.ok) return
+    expect(validated.entry.lines.some((line) => line.accountNumber === '1776')).toBe(false)
+    expect(validated.entry.grossAmountCents).toBe(validated.entry.netAmountCents)
+  })
+
   it('verhindert Doppelbuchung bereits gebuchter Rechnungen', () => {
     const booked = { ...draftInvoice, journalEntryIds: ['je-abc'] }
     const result = buildInvoiceBookingDrafts(booked, demoCustomers[0])

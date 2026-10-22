@@ -31,7 +31,7 @@ function emptyLine(): LineDraft {
 
 export function OrderForm() {
   const navigate = useNavigate()
-  const { purchase, sales, savePurchaseOrder } = useAccounting()
+  const { purchase, sales, savePurchaseOrder, vatEnabled } = useAccounting()
   const [supplierId, setSupplierId] = useState(purchase.suppliers[0]?.id ?? '')
   const [orderDate, setOrderDate] = useState('2026-10-09')
   const [lines, setLines] = useState<LineDraft[]>([emptyLine()])
@@ -50,7 +50,7 @@ export function OrderForm() {
           netUnitPrice: (product.netPurchasePriceCents / 100)
             .toFixed(2)
             .replace('.', ','),
-          vatRate: product.vatRate,
+          vatRate: vatEnabled ? product.vatRate : 0,
           expenseAccount: product.vatRate === 7 ? '3300' : '3400',
         }
       }),
@@ -74,7 +74,7 @@ export function OrderForm() {
         description: line.description.trim(),
         quantity,
         netUnitPriceCents: net,
-        vatRate: line.vatRate,
+        vatRate: vatEnabled ? line.vatRate : 0,
         expenseAccount: line.expenseAccount,
       })
     }
@@ -186,25 +186,27 @@ export function OrderForm() {
                 required
               />
             </label>
-            <label className="form-field">
-              <span>USt</span>
-              <select
-                value={line.vatRate}
-                onChange={(e) => {
-                  const value = Number(e.target.value)
-                  if (!isVatRate(value)) return
-                  setLines((prev) =>
-                    prev.map((item, i) =>
-                      i === index ? { ...item, vatRate: value } : item,
-                    ),
-                  )
-                }}
-              >
-                <option value={0}>0 %</option>
-                <option value={7}>7 %</option>
-                <option value={19}>19 %</option>
-              </select>
-            </label>
+            {vatEnabled ? (
+              <label className="form-field">
+                <span>USt</span>
+                <select
+                  value={line.vatRate}
+                  onChange={(e) => {
+                    const value = Number(e.target.value)
+                    if (!isVatRate(value)) return
+                    setLines((prev) =>
+                      prev.map((item, i) =>
+                        i === index ? { ...item, vatRate: value } : item,
+                      ),
+                    )
+                  }}
+                >
+                  <option value={0}>0 %</option>
+                  <option value={7}>7 %</option>
+                  <option value={19}>19 %</option>
+                </select>
+              </label>
+            ) : null}
             <label className="form-field">
               <span>Aufwandskonto</span>
               <select

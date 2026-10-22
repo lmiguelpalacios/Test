@@ -2,6 +2,7 @@ import { useMemo, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useAccounting } from '../../accounting/AccountingContext'
 import { formatCents, parseEuroInput } from '../../accounting/money'
+import { displayVatRate } from '../../accounting/vat'
 import { calculateInvoiceTotals, lineNetCents } from '../../sales/invoiceMath'
 import {
   deriveInvoiceStatus,
@@ -14,7 +15,7 @@ import { InvoiceStatusBadge } from './InvoiceStatusBadge'
 
 export function InvoiceDetail() {
   const { invoiceId } = useParams()
-  const { sales, bookInvoice, recordInvoicePayment } = useAccounting()
+  const { sales, bookInvoice, recordInvoicePayment, vatEnabled } = useAccounting()
   const invoice = sales.invoices.find((item) => item.id === invoiceId)
   const customer = sales.customers.find((item) => item.id === invoice?.customerId)
   const [message, setMessage] = useState<string | null>(null)
@@ -24,10 +25,19 @@ export function InvoiceDetail() {
   const [payAccount, setPayAccount] = useState<'1200' | '1000'>('1200')
   const [payReference, setPayReference] = useState('')
 
+  const booked = (invoice?.journalEntryIds.length ?? 0) > 0
+  const displayLines = useMemo(() => {
+    if (!invoice) return []
+    return invoice.lines.map((line) => ({
+      ...line,
+      vatRate: displayVatRate(line.vatRate, vatEnabled, booked),
+    }))
+  }, [invoice, vatEnabled, booked])
   const totals = useMemo(
-    () => (invoice ? calculateInvoiceTotals(invoice.lines) : null),
-    [invoice],
+    () => (invoice ? calculateInvoiceTotals(displayLines) : null),
+    [invoice, displayLines],
   )
+  const showVat = vatEnabled || displayLines.some((line) => line.vatRate > 0)
   const status = invoice ? deriveInvoiceStatus(invoice, sales.payments) : null
   const open = invoice ? openAmountCents(invoice, sales.payments) : 0
   const payments = sales.payments.filter((payment) => payment.invoiceId === invoice?.id)
@@ -156,14 +166,18 @@ export function InvoiceDetail() {
               <span className="muted">Netto</span>
               <strong>{formatCents(totals.netCents)}</strong>
             </div>
-            <div>
-              <span className="muted">USt</span>
-              <strong>{formatCents(totals.taxCents)}</strong>
-            </div>
-            <div>
-              <span className="muted">Brutto</span>
-              <strong>{formatCents(totals.grossCents)}</strong>
-            </div>
+            {showVat ? (
+              <>
+                <div>
+                  <span className="muted">USt</span>
+                  <strong>{formatCents(totals.taxCents)}</strong>
+                </div>
+                <div>
+                  <span className="muted">Brutto</span>
+                  <strong>{formatCents(totals.grossCents)}</strong>
+                </div>
+              </>
+            ) : null}
             <div>
               <span className="muted">Offen</span>
               <strong>{status === 'entwurf' ? '—' : formatCents(open)}</strong>
@@ -195,17 +209,17 @@ export function InvoiceDetail() {
                 <th>Bezeichnung</th>
                 <th className="num">Menge</th>
                 <th className="num">Einzelpreis</th>
-                <th>USt</th>
+                {showVat ? <th>USt</th> : null}
                 <th className="num">Netto</th>
               </tr>
             </thead>
             <tbody>
-              {invoice.lines.map((line) => (
+              {displayLines.map((line) => (
                 <tr key={line.id}>
                   <td>{line.description}</td>
                   <td className="num">{line.quantity}</td>
                   <td className="num">{formatCents(line.netUnitPriceCents)}</td>
-                  <td>{line.vatRate} %</td>
+                  {showVat ? <td>{line.vatRate} %</td> : null}
                   <td className="num">
                     {formatCents(lineNetCents(line.quantity, line.netUnitPriceCents))}
                   </td>

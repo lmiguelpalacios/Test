@@ -377,6 +377,22 @@ export function getLearningTaskById(id: string): LearningTask | undefined {
   return learningTasks.find((task) => task.id === id)
 }
 
+/** lt-08 / lt-09 (Thema USt/VSt) sind nur sichtbar, wenn Umsatzsteuer an ist. */
+export function isVatSettingTask(task: { id: string; topic: string }): boolean {
+  return task.topic === 'ust_vst' || task.id === 'lt-08' || task.id === 'lt-09'
+}
+
+export function visibleLearningTasks(vatEnabled: boolean): LearningTask[] {
+  if (vatEnabled) return learningTasks
+  return learningTasks.filter((task) => !isVatSettingTask(task))
+}
+
+/** Punkte einer Buchungsaufgabe ohne USt-Kriterium, wenn der Schalter aus ist. */
+export function learningTaskMaxPoints(task: LearningTask, vatEnabled: boolean): number {
+  if (!vatEnabled && task.kind === 'booking') return Math.max(0, task.maxPoints - 1)
+  return task.maxPoints
+}
+
 export function computeLearningTotalPoints(
   progress: LearningState['progress'],
 ): number {

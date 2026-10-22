@@ -12,7 +12,11 @@ import type {
   TAccountDraft,
 } from '../../abschluss/types'
 import { chartOfAccounts } from '../../data/chart-of-accounts'
-import { getLearningTaskById } from '../../data/learning-tasks'
+import {
+  getLearningTaskById,
+  isVatSettingTask,
+  learningTaskMaxPoints,
+} from '../../data/learning-tasks'
 import type { EvaluationResult } from '../../types/learning'
 import type { VatRate } from '../../types/accounting'
 import {
@@ -41,6 +45,7 @@ export function LearningTaskDetail() {
     completeLearningTask,
     postLearningPracticeEntry,
     capabilities,
+    vatEnabled,
   } = useAccounting()
   const task = taskId ? getLearningTaskById(taskId) : undefined
   const progress = learning.progress.find((item) => item.taskId === taskId)
@@ -78,6 +83,24 @@ export function LearningTaskDetail() {
     )
   }
 
+  if (!vatEnabled && isVatSettingTask(task)) {
+    return (
+      <div className="page-stack">
+        <PageHeader
+          title={task.title}
+          subtitle="Ausgeblendet, weil Umsatzsteuer ausgeschaltet ist"
+        />
+        <p className="panel-note">
+          Aufgaben zu Umsatzsteuer und Vorsteuer (lt-08, lt-09) sind nur sichtbar, wenn
+          Umsatzsteuer in den Einstellungen an ist.
+        </p>
+        <Link to="/lernmodus" className="text-link">
+          Zur Übersicht
+        </Link>
+      </div>
+    )
+  }
+
   const handleCheckBooking = (event: FormEvent) => {
     event.preventDefault()
     setError(null)
@@ -97,7 +120,7 @@ export function LearningTaskDetail() {
         debitAccount,
         creditAccount,
         netAmountCents,
-        vatRate,
+        vatRate: vatEnabled ? vatRate : 0,
       },
     }).then((result) => {
       if (!result.ok || !result.evaluation) {
@@ -210,7 +233,7 @@ export function LearningTaskDetail() {
         {progress ? (
           <p className="panel-note">
             Versuche: {progress.attempts} · beste Punkte: {progress.bestScore}/
-            {task.maxPoints}
+            {learningTaskMaxPoints(task, vatEnabled)}
             {progress.completed ? ' · abgeschlossen' : ''}
             {progress.practicePostedAt ? ' · Übungsbuchung im Journal' : ''}
           </p>
@@ -271,19 +294,26 @@ export function LearningTaskDetail() {
                 required
               />
             </label>
-            <label className="form-field">
-              <span>USt-Satz</span>
-              <select
-                value={vatRate}
-                onChange={(event) =>
-                  setVatRate(Number(event.target.value) as VatRate)
-                }
-              >
-                <option value={0}>0 %</option>
-                <option value={7}>7 %</option>
-                <option value={19}>19 %</option>
-              </select>
-            </label>
+            {vatEnabled ? (
+              <label className="form-field">
+                <span>USt-Satz</span>
+                <select
+                  value={vatRate}
+                  onChange={(event) =>
+                    setVatRate(Number(event.target.value) as VatRate)
+                  }
+                >
+                  <option value={0}>0 %</option>
+                  <option value={7}>7 %</option>
+                  <option value={19}>19 %</option>
+                </select>
+              </label>
+            ) : (
+              <p className="panel-note">
+                Umsatzsteuer ist aus. Bewertet werden Soll, Haben und Netto — die
+                Musterlösung wird als Nettobuchung ohne Steuerzeilen verglichen.
+              </p>
+            )}
           </div>
           {preview !== null ? (
             <p className="panel-note">Netto-Vorschau: {formatCents(preview)}</p>
@@ -383,8 +413,10 @@ export function LearningTaskDetail() {
             <p className="panel-note">
               Soll <code>{task.solution.debitAccount}</code> / Haben{' '}
               <code>{task.solution.creditAccount}</code> · Netto{' '}
-              {formatCents(task.solution.netAmountCents)} · USt{' '}
-              {task.solution.vatRate} %
+              {formatCents(task.solution.netAmountCents)}
+              {vatEnabled
+                ? ` · USt ${task.solution.vatRate} %`
+                : ' · Nettobuchung ohne USt'}
             </p>
           ) : null}
           {task.kind === 't_accounts' ? (

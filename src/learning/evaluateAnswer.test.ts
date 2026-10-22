@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { learningTasks } from '../data/learning-tasks'
+import { isTaxLineAccount } from '../accounting/vat'
 import { validateJournalEntry } from '../accounting/validateEntry'
 import { chartOfAccounts } from '../data/chart-of-accounts'
 import { expectedTAccountsAsDraft } from '../abschluss/expectedBalances'
@@ -21,6 +22,38 @@ describe('Lernmodus-Bewertung', () => {
       const validated = validateJournalEntry(draft, chartOfAccounts)
       expect(validated.ok).toBe(true)
     }
+  })
+
+  it('lässt das USt-Kriterium weg und akzeptiert die Nettobuchung einer 19-%-Aufgabe', () => {
+    const task = learningTasks.find((item) => item.id === 'lt-02')
+    if (!task || task.kind !== 'booking') throw new Error('expected booking lt-02')
+    expect(task.solution.vatRate).toBe(19)
+    const result = evaluateLearningAnswer(
+      task,
+      {
+        kind: 'booking',
+        answer: {
+          ...task.solution,
+          vatRate: 19,
+        },
+      },
+      { vatEnabled: false },
+    )
+    expect(result.criteria.some((criterion) => criterion.id === 'vat')).toBe(false)
+    expect(result.fullyCorrect).toBe(true)
+    expect(result.score).toBe(3)
+    expect(result.maxPoints).toBe(3)
+
+    const draft = solutionToPracticeDraft(task, { vatEnabled: false })
+    expect(draft.vatRate).toBe(0)
+    expect(draft.debitAccount).toBe(task.solution.debitAccount)
+    expect(draft.creditAccount).toBe(task.solution.creditAccount)
+    const validated = validateJournalEntry(draft, chartOfAccounts, { vatEnabled: false })
+    expect(validated.ok).toBe(true)
+    if (!validated.ok) return
+    expect(validated.entry.lines.some((line) => isTaxLineAccount(line.accountNumber))).toBe(
+      false,
+    )
   })
 
   it('gibt Teilpunkte und erklärendes Feedback bei Fehlern', () => {

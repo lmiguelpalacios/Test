@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { GraduationCap } from 'lucide-react'
 import { useAccounting } from '../../accounting/AccountingContext'
-import { learningTasks } from '../../data/learning-tasks'
+import { visibleLearningTasks, learningTaskMaxPoints } from '../../data/learning-tasks'
 import {
   LEARNING_DIFFICULTY_LABELS,
   LEARNING_KIND_LABELS,
@@ -14,7 +14,7 @@ import { DemoBanner } from '../DemoBanner'
 import { PageHeader } from '../PageHeader'
 
 export function LearningOverview() {
-  const { learning, persistWarning } = useAccounting()
+  const { learning, persistWarning, vatEnabled } = useAccounting()
   const [topic, setTopic] = useState<'alle' | LearningTopic>('alle')
   const [difficulty, setDifficulty] = useState<'alle' | LearningDifficulty>('alle')
 
@@ -24,8 +24,10 @@ export function LearningOverview() {
 
   const completedCount = learning.progress.filter((item) => item.completed).length
 
+  const catalog = useMemo(() => visibleLearningTasks(vatEnabled), [vatEnabled])
+
   const rows = useMemo(() => {
-    return learningTasks
+    return catalog
       .filter((task) => (topic === 'alle' ? true : task.topic === topic))
       .filter((task) =>
         difficulty === 'alle' ? true : task.difficulty === difficulty,
@@ -34,9 +36,11 @@ export function LearningOverview() {
         task,
         progress: progressById.get(task.id),
       }))
-  }, [topic, difficulty, progressById])
+  }, [topic, difficulty, progressById, catalog])
 
-  const topics = Object.keys(LEARNING_TOPIC_LABELS) as LearningTopic[]
+  const topics = (Object.keys(LEARNING_TOPIC_LABELS) as LearningTopic[]).filter(
+    (id) => vatEnabled || id !== 'ust_vst',
+  )
 
   return (
     <div className="page-stack">
@@ -52,7 +56,7 @@ export function LearningOverview() {
         actions={
           <span className="panel-badge">
             <GraduationCap size={14} aria-hidden /> {completedCount}/
-            {learningTasks.length} abgeschlossen · {learning.totalPoints} Punkte
+            {catalog.length} abgeschlossen · {learning.totalPoints} Punkte
           </span>
         }
       />
@@ -60,7 +64,7 @@ export function LearningOverview() {
       <section className="kpi-grid accounting-kpi-grid" aria-label="Lernfortschritt">
         <article className="kpi-card">
           <p className="kpi-label">Aufgaben</p>
-          <p className="kpi-value">{learningTasks.length}</p>
+          <p className="kpi-value">{catalog.length}</p>
         </article>
         <article className="kpi-card">
           <p className="kpi-label">Abgeschlossen</p>
@@ -155,7 +159,9 @@ export function LearningOverview() {
                     )}
                   </td>
                   <td className="num">
-                    {progress ? `${progress.bestScore}/${task.maxPoints}` : `—/${task.maxPoints}`}
+                    {progress
+                      ? `${progress.bestScore}/${learningTaskMaxPoints(task, vatEnabled)}`
+                      : `—/${learningTaskMaxPoints(task, vatEnabled)}`}
                   </td>
                 </tr>
               ))}
