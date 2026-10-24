@@ -5,7 +5,8 @@ import type { Cents } from './money'
 export const VAT_DISABLED_NOTE =
   'Bereits gebuchte Steuerzeilen bleiben im Journal. Nur neue Buchungen lassen die Umsatzsteuer weg.'
 
-export const TAX_LINE_ACCOUNTS = ['1571', '1576', '1771', '1776'] as const
+/** Vorsteuer 260 und Umsatzsteuer 480 (7 % und 19 %). 0 % erzeugt keine Zeile. */
+export const TAX_LINE_ACCOUNTS = ['260', '480'] as const
 
 export function isTaxLineAccount(accountNumber: string): boolean {
   return (TAX_LINE_ACCOUNTS as readonly string[]).includes(accountNumber)

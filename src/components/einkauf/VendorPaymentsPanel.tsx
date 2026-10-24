@@ -13,7 +13,7 @@ export function VendorPaymentsPanel() {
 
   return (
     <div className="page-stack">
-      <DemoBanner detail="Zahlungsausgänge mindern Verbindlichkeiten (1600) gegen Bank — ohne erneute Aufwandbuchung." />
+      <DemoBanner detail="Zahlungsausgänge mindern Verbindlichkeiten (44) gegen Bank (280) — ohne erneute Aufwandbuchung." />
       <PageHeader
         title="Zahlungsausgänge"
         subtitle="Gebuchte Zahlungen zu Eingangsrechnungen"

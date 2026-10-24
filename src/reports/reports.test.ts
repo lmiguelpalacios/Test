@@ -27,8 +27,8 @@ describe('Berichte aus Journal / Belegen', () => {
     )
   })
 
-  it('Kontenblatt: laufender Saldo Bank 1200 nachvollziehbar', () => {
-    const ledger = buildAccountLedger(initialJournalEntries, '1200', OCTOBER)
+  it('Kontenblatt: laufender Saldo Bank 280 nachvollziehbar', () => {
+    const ledger = buildAccountLedger(initialJournalEntries, '280', OCTOBER)
     expect(ledger.openingBalanceCents).toBe(0)
     expect(ledger.lines.length).toBeGreaterThan(0)
     // ZE +198000, Miete brutto −214200, ZA −326001
@@ -41,7 +41,7 @@ describe('Berichte aus Journal / Belegen', () => {
     const guv = buildIncomeStatement(initialJournalEntries, OCTOBER)
     expect(guv.totalRevenueCents).toBe(4_050_42 + 1_803_78 + 5_369_75)
     expect(guv.resultCents).toBe(guv.totalRevenueCents - guv.totalExpenseCents)
-    expect(guv.expenseRows.some((row) => row.accountNumber === '3400')).toBe(
+    expect(guv.expenseRows.some((row) => row.accountNumber === '608')).toBe(
       true,
     )
   })
@@ -50,8 +50,8 @@ describe('Berichte aus Journal / Belegen', () => {
     const bilanz = buildBalanceSheet(initialJournalEntries, '2026-10-08')
     expect(bilanz.balanced).toBe(true)
     expect(bilanz.totalAssetsCents).toBe(bilanz.totalLiabilitiesAndEquityCents)
-    expect(bilanz.assets.some((row) => row.accountNumber === '1400')).toBe(true)
-    expect(bilanz.liabilities.some((row) => row.accountNumber === '1600')).toBe(
+    expect(bilanz.assets.some((row) => row.accountNumber === '240')).toBe(true)
+    expect(bilanz.liabilities.some((row) => row.accountNumber === '44')).toBe(
       true,
     )
     // Kein Fake-Ausgleich — Periodenergebnis ist GuV-Ergebnis

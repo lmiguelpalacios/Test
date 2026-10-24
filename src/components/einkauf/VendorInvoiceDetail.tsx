@@ -22,7 +22,7 @@ export function VendorInvoiceDetail() {
   const [error, setError] = useState<string | null>(null)
   const [payDate, setPayDate] = useState('2026-10-09')
   const [payAmount, setPayAmount] = useState('')
-  const [payAccount, setPayAccount] = useState<'1200' | '1000'>('1200')
+  const [payAccount, setPayAccount] = useState<'280' | '282'>('280')
   const [payReference, setPayReference] = useState('')
 
   const totals = useMemo(() => {
@@ -253,11 +253,11 @@ export function VendorInvoiceDetail() {
                     <select
                       value={payAccount}
                       onChange={(e) =>
-                        setPayAccount(e.target.value as '1200' | '1000')
+                        setPayAccount(e.target.value as '280' | '282')
                       }
                     >
-                      <option value="1200">1200 Bank</option>
-                      <option value="1000">1000 Kasse</option>
+                      <option value="280">280 Bank</option>
+                      <option value="282">282 Kasse</option>
                     </select>
                   </label>
                   <label className="form-field form-field-wide">

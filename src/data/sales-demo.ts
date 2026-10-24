@@ -193,7 +193,7 @@ export function createDemoSalesState(): SalesState {
         invoiceId: 'inv-0151',
         date: '2026-10-07',
         amountCents: 1_980_00,
-        bankAccount: '1200',
+        bankAccount: '280',
         reference: 'ZE-2026-0044 Teilzahlung RE-2026-0151',
         journalEntryId: 'je-006',
         createdAt: '2026-10-07T16:40:00',

@@ -37,7 +37,7 @@ export interface OpenItemsReport {
 }
 
 /**
- * Offene Posten aus Verkaufs-/Einkaufsbelegen (nicht aus Kontensalden 1400/1600).
+ * Offene Posten aus Verkaufs-/Einkaufsbelegen (nicht aus Kontensalden 240/44).
  * Entwürfe ohne Journalbuchung werden ausgelassen.
  */
 export function buildOpenItemsReport(
@@ -110,7 +110,7 @@ export function buildOpenItemsReport(
     totalReceivableOpenCents: receivables.reduce((sum, row) => sum + row.openCents, 0),
     totalPayableOpenCents: payables.reduce((sum, row) => sum + row.openCents, 0),
     notices: [
-      'Offene Beträge aus Rechnungs- und Zahlungsbelegen (Verkauf/Einkauf) — nicht erneut aus Konto 1400/1600 abgeleitet.',
+      'Offene Beträge aus Rechnungs- und Zahlungsbelegen (Verkauf/Einkauf) — nicht erneut aus Konto 240/44 abgeleitet.',
       'Nur gebuchte Belege; Entwürfe ohne Journalbuchung erscheinen nicht.',
     ],
   }

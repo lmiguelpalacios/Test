@@ -6,6 +6,10 @@ import { createId } from '../../data/sales-demo'
 import type { VatRate } from '../../types/accounting'
 import type { PurchaseOrderLine } from '../../types/purchase'
 import { isVatRate } from '../../accounting/vat'
+import {
+  GOODS_EXPENSE_ACCOUNT,
+  purchaseExpenseChoices,
+} from '../../data/chart-of-accounts'
 
 interface LineDraft {
   key: string
@@ -25,7 +29,7 @@ function emptyLine(): LineDraft {
     quantity: '1',
     netUnitPrice: '',
     vatRate: 19,
-    expenseAccount: '3400',
+    expenseAccount: GOODS_EXPENSE_ACCOUNT,
   }
 }
 
@@ -51,7 +55,7 @@ export function OrderForm() {
             .toFixed(2)
             .replace('.', ','),
           vatRate: vatEnabled ? product.vatRate : 0,
-          expenseAccount: product.vatRate === 7 ? '3300' : '3400',
+          expenseAccount: GOODS_EXPENSE_ACCOUNT,
         }
       }),
     )
@@ -221,10 +225,15 @@ export function OrderForm() {
                   )
                 }
               >
-                <option value="3400">3400 Wareneingang 19 %</option>
-                <option value="3300">3300 Wareneingang 7 %</option>
-                <option value="4920">4920 Bürobedarf</option>
+                {purchaseExpenseChoices(line.expenseAccount).map((account) => (
+                  <option key={account.number} value={account.number}>
+                    {account.number} {account.name}
+                  </option>
+                ))}
               </select>
+              <span className="muted">
+                608 Aufwendungen für Handelswaren gilt auch für 0 % und bucht dann keine Vorsteuer.
+              </span>
             </label>
           </div>
         ))}
