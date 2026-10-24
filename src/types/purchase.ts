@@ -23,7 +23,7 @@ export interface PurchaseOrderLine {
   quantity: number
   netUnitPriceCents: number
   vatRate: VatRate
-  /** Aufwandskonto für spätere Eingangsrechnung, z. B. 3400 */
+  /** Aufwandskonto für spätere Eingangsrechnung, z. B. 608 */
   expenseAccount: string
 }
 
@@ -87,7 +87,7 @@ export interface VendorPayment {
   invoiceId: string
   date: string
   amountCents: number
-  bankAccount: '1200' | '1000'
+  bankAccount: '280' | '282'
   reference?: string
   journalEntryId: string
   createdAt: string

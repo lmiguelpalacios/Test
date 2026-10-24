@@ -15,7 +15,7 @@ export function AccountLedgerPanel() {
   const [searchParams] = useSearchParams()
   const { entries } = useAccounting()
   const [accountNumber, setAccountNumber] = useState(
-    routeAccount ?? searchParams.get('account') ?? '1200',
+    routeAccount ?? searchParams.get('account') ?? '280',
   )
   const [from, setFrom] = useState(searchParams.get('from') ?? '2026-10-01')
   const [to, setTo] = useState(searchParams.get('to') ?? '2026-10-31')

@@ -1,6 +1,7 @@
 import type { VatRate } from '../types/accounting'
 import type { InvoiceLine, InvoiceTotals } from '../types/sales'
 import { calculateTaxCents } from '../accounting/vat'
+import { GOODS_REVENUE_ACCOUNT } from '../data/chart-of-accounts'
 
 export function lineNetCents(quantity: number, netUnitPriceCents: number): number {
   if (!Number.isFinite(quantity) || quantity <= 0) {
@@ -47,10 +48,9 @@ export function calculateInvoiceTotals(lines: InvoiceLine[]): InvoiceTotals {
   }
 }
 
-export function revenueAccountForVat(vatRate: VatRate): string {
-  if (vatRate === 19) return '8400'
-  if (vatRate === 7) return '8300'
-  return '8000'
+/** Schulkontenrahmen: ein Erlöskonto für Handelswaren, unabhängig vom Satz. */
+export function revenueAccountForVat(_vatRate: VatRate): string {
+  return GOODS_REVENUE_ACCOUNT
 }
 
 export function groupLinesByVatRate(

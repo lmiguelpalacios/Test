@@ -209,10 +209,10 @@ begin
   perform set_config('request.jwt.claim.sub', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa3', false);
   set role authenticated;
   pay_id := public.record_sales_payment(
-    org_a, inv_ar, current_date, 500, '1200', 'RPC-PAY-1'
+    org_a, inv_ar, current_date, 500, '280', 'RPC-PAY-1'
   );
   pay_id2 := public.record_sales_payment(
-    org_a, inv_ar, current_date, 500, '1200', 'RPC-PAY-1'
+    org_a, inv_ar, current_date, 500, '280', 'RPC-PAY-1'
   );
   reset role;
 
@@ -241,7 +241,7 @@ begin
   begin
     -- AR-RPC-1: 2*1000 net + 19% = 2380 gross; paid 500; remaining 1880
     perform public.record_sales_payment(
-      org_a, inv_ar, current_date, 99999, '1200', 'OVER'
+      org_a, inv_ar, current_date, 99999, '280', 'OVER'
     );
   exception when others then
     raised := true;
@@ -256,7 +256,7 @@ begin
   raised := false;
   begin
     perform public.record_sales_payment(
-      org_a, inv_ar, current_date, 100, '1200', 'T'
+      org_a, inv_ar, current_date, 100, '280', 'T'
     );
   exception when others then
     raised := (sqlerrm ilike '%forbidden%');
@@ -361,8 +361,8 @@ begin
   insert into public.vendor_invoice_lines (
     organization_id, invoice_id, product_id, description,
     quantity, net_unit_price_cents, vat_rate, expense_account
-  ) values (org_a, inv_er_bad, prod_a, 'Bad acct', 1, 1000, 19, '1400');
-  -- 1400 is aktiv/Forderungen, not aufwand
+  ) values (org_a, inv_er_bad, prod_a, 'Bad acct', 1, 1000, 19, '240');
+  -- 240 is aktiv/Forderungen, not aufwand
 
   select count(*) into v_je_count_before from public.journal_entries
   where organization_id = org_a;
@@ -402,15 +402,15 @@ begin
   insert into public.vendor_invoice_lines (
     organization_id, invoice_id, product_id, description,
     quantity, net_unit_price_cents, vat_rate, expense_account
-  ) values (org_a, inv_er, prod_a, 'Ware', 1, 1000, 19, '3400');
+  ) values (org_a, inv_er, prod_a, 'Ware', 1, 1000, 19, '608');
 
   je := public.book_vendor_invoice(org_a, inv_er);
 
   pay_id := public.record_vendor_payment(
-    org_a, inv_er, current_date, 1190, '1200', 'ER-PAY'
+    org_a, inv_er, current_date, 1190, '280', 'ER-PAY'
   );
   pay_id2 := public.record_vendor_payment(
-    org_a, inv_er, current_date, 1190, '1200', 'ER-PAY'
+    org_a, inv_er, current_date, 1190, '280', 'ER-PAY'
   );
   reset role;
 
@@ -441,7 +441,7 @@ begin
   raised := false;
   begin
     perform public.record_sales_payment(
-      org_a, inv_ar, current_date, 0, '1200', 'ZERO'
+      org_a, inv_ar, current_date, 0, '280', 'ZERO'
     );
   exception when others then
     raised := true;
@@ -463,7 +463,7 @@ begin
   raised := false;
   begin
     perform public.record_sales_payment(
-      org_a, inv_ar2, current_date, 50, '1200', 'EARLY'
+      org_a, inv_ar2, current_date, 50, '280', 'EARLY'
     );
   exception when others then
     raised := (sqlerrm ilike '%booked%');
@@ -479,7 +479,7 @@ begin
   begin
     insert into public.sales_payments (
       organization_id, invoice_id, payment_date, amount_cents, bank_account
-    ) values (org_a, inv_ar, current_date, 1, '1200');
+    ) values (org_a, inv_ar, current_date, 1, '280');
   exception when others then
     raised := true;
   end;
@@ -497,7 +497,7 @@ begin
     tax_amount_cents, gross_amount_cents
   ) values (
     org_a, current_date, 'AR-RPC-MID-U7', 'blocker',
-    '1400', '8300', 100, 7, 7, 107
+    '240', '501', 100, 7, 7, 107
   );
 
   perform set_config('request.jwt.claim.sub', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa3', false);
@@ -540,7 +540,7 @@ begin
   );
 
   -- ========================================================================
-  -- vat_enabled false: client rate 19 must not create 1776 / 1576
+  -- vat_enabled false: client rate 19 must not create 480 / 260
   -- ========================================================================
   update public.organizations set vat_enabled = false where id = org_a;
 
@@ -567,7 +567,7 @@ begin
   insert into public.vendor_invoice_lines (
     organization_id, invoice_id, description,
     quantity, net_unit_price_cents, vat_rate, expense_account
-  ) values (org_a, inv_er_novat, '19% ignored', 1, 5000, 19, '3400');
+  ) values (org_a, inv_er_novat, '19% ignored', 1, 5000, 19, '608');
 
   je2 := public.book_vendor_invoice(org_a, inv_er_novat);
   reset role;
@@ -575,11 +575,11 @@ begin
   select count(*) into v_tax_lines
   from public.journal_lines
   where journal_entry_id in (je, je2)
-    and account_number in ('1571', '1576', '1771', '1776');
+    and account_number in ('260', '260', '480', '480');
 
   select count(*) into n
   from public.journal_lines
-  where journal_entry_id = je and account_number = '1776';
+  where journal_entry_id = je and account_number = '480';
 
   perform public.booking_expect(
     'VAT_OFF_NO_TAX_LINES',
@@ -600,7 +600,7 @@ begin
 
   select count(*) into n
   from public.journal_lines
-  where journal_entry_id = je2 and account_number = '1576';
+  where journal_entry_id = je2 and account_number = '260';
 
   perform public.booking_expect(
     'VAT_OFF_NO_1576',

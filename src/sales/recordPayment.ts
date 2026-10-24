@@ -17,7 +17,7 @@ export function buildPaymentBookingDraft(
   input: {
     date: string
     amountCents: number
-    bankAccount: '1200' | '1000'
+    bankAccount: '280' | '282'
     reference?: string
   },
 ): PaymentDraftResult {
@@ -33,7 +33,7 @@ export function buildPaymentBookingDraft(
   if (!Number.isInteger(input.amountCents) || input.amountCents <= 0) {
     return { ok: false, message: 'Der Zahlungsbetrag muss größer als 0,00 € sein.' }
   }
-  if (input.bankAccount !== '1200' && input.bankAccount !== '1000') {
+  if (input.bankAccount !== '280' && input.bankAccount !== '282') {
     return { ok: false, message: 'Bitte ein gültiges Bank-/Kassenkonto wählen.' }
   }
 
@@ -63,7 +63,7 @@ export function buildPaymentBookingDraft(
         input.reference?.trim() ||
         `Zahlungseingang zu ${invoice.number}`,
       debitAccount: input.bankAccount,
-      creditAccount: '1400',
+      creditAccount: '240',
       netAmountCents: input.amountCents,
       vatRate: 0,
     },

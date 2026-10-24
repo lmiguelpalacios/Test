@@ -116,7 +116,7 @@ interface AccountingContextValue {
     input: {
       date: string
       amountCents: number
-      bankAccount: '1200' | '1000'
+      bankAccount: '280' | '282'
       reference?: string
     },
   ) => Promise<ActionResult>
@@ -144,7 +144,7 @@ interface AccountingContextValue {
     input: {
       date: string
       amountCents: number
-      bankAccount: '1200' | '1000'
+      bankAccount: '280' | '282'
       reference?: string
     },
   ) => Promise<ActionResult>
@@ -792,7 +792,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
       input: {
         date: string
         amountCents: number
-        bankAccount: '1200' | '1000'
+        bankAccount: '280' | '282'
         reference?: string
       },
     ): Promise<ActionResult> => {
@@ -1294,7 +1294,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
       input: {
         date: string
         amountCents: number
-        bankAccount: '1200' | '1000'
+        bankAccount: '280' | '282'
         reference?: string
       },
     ): Promise<ActionResult> => {

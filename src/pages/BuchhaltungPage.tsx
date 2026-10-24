@@ -20,7 +20,7 @@ export function ChartOfAccountsPage() {
       <DemoBanner />
       <PageHeader
         title="Kontenplan"
-        subtitle="Vereinfachter Lernkontenplan für die Nordlicht Handels GmbH"
+        subtitle="Schulkontenrahmen Industrie für die Nordlicht Handels GmbH"
         actions={
           <NavLink to="/buchhaltung" className="btn btn-secondary">
             Zur Übersicht

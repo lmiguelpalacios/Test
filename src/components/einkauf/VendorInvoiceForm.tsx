@@ -3,6 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { useAccounting } from '../../accounting/AccountingContext'
 import { parseEuroInput } from '../../accounting/money'
 import { isVatRate } from '../../accounting/vat'
+import {
+  GOODS_EXPENSE_ACCOUNT,
+  purchaseExpenseChoices,
+} from '../../data/chart-of-accounts'
 import { createId } from '../../data/sales-demo'
 import type { VatRate } from '../../types/accounting'
 import type { VendorInvoiceLine } from '../../types/purchase'
@@ -23,7 +27,7 @@ function emptyLine(): LineDraft {
     quantity: '1',
     netUnitPrice: '',
     vatRate: 19,
-    expenseAccount: '3400',
+    expenseAccount: GOODS_EXPENSE_ACCOUNT,
   }
 }
 
@@ -217,11 +221,15 @@ export function VendorInvoiceForm() {
                   )
                 }
               >
-                <option value="3400">3400 Wareneingang 19 %</option>
-                <option value="3300">3300 Wareneingang 7 %</option>
-                <option value="4920">4920 Bürobedarf</option>
-                <option value="4210">4210 Miete</option>
+                {purchaseExpenseChoices(line.expenseAccount).map((account) => (
+                  <option key={account.number} value={account.number}>
+                    {account.number} {account.name}
+                  </option>
+                ))}
               </select>
+              <span className="muted">
+                608 Aufwendungen für Handelswaren gilt auch für 0 % und bucht dann keine Vorsteuer.
+              </span>
             </label>
           </div>
         ))}

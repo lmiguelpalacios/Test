@@ -12,8 +12,8 @@ describe('Buchungsvalidierung / Soll-Haben-Ausgleich', () => {
         date: '2026-10-09',
         documentNumber: 'ER-TEST-1',
         description: 'Wareneinkauf Test',
-        debitAccount: '3400',
-        creditAccount: '1600',
+        debitAccount: '608',
+        creditAccount: '44',
         netAmountCents: 10000,
         vatRate: 19,
       },
@@ -28,10 +28,49 @@ describe('Buchungsvalidierung / Soll-Haben-Ausgleich', () => {
     expect(debitCents).toBe(11900)
     expect(result.entry.taxAmountCents).toBe(1900)
     expect(result.entry.grossAmountCents).toBe(11900)
-    expect(result.entry.lines.some((line) => line.accountNumber === '1576')).toBe(
+    expect(result.entry.lines.some((line) => line.accountNumber === '260')).toBe(
       true,
     )
     expect(result.entry.explanation.length).toBeGreaterThan(20)
+  })
+
+  it('bucht 0 % auf 608 ohne Steuerzeile und 7 % auf dieselbe Vorsteuer 260', () => {
+    const zero = validateJournalEntry(
+      {
+        date: '2026-10-09',
+        documentNumber: 'ER-ZERO',
+        description: 'Wareneingang ohne Vorsteuer',
+        debitAccount: '608',
+        creditAccount: '44',
+        netAmountCents: 5000,
+        vatRate: 0,
+      },
+      chartOfAccounts,
+    )
+    expect(zero.ok).toBe(true)
+    if (!zero.ok) return
+    expect(zero.entry.lines).toEqual([
+      { accountNumber: '608', debitCents: 5000, creditCents: 0 },
+      { accountNumber: '44', debitCents: 0, creditCents: 5000 },
+    ])
+    expect(zero.entry.lines.some((line) => isTaxLineAccount(line.accountNumber))).toBe(false)
+
+    const reduced = validateJournalEntry(
+      {
+        date: '2026-10-09',
+        documentNumber: 'ER-7',
+        description: 'Wareneingang 7 Prozent',
+        debitAccount: '608',
+        creditAccount: '44',
+        netAmountCents: 5000,
+        vatRate: 7,
+      },
+      chartOfAccounts,
+    )
+    expect(reduced.ok).toBe(true)
+    if (!reduced.ok) return
+    expect(reduced.entry.lines.some((line) => line.accountNumber === '260')).toBe(true)
+    expect(reduced.entry.taxAmountCents).toBe(350)
   })
 
   it('erzeugt ausgeglichene Erlösbuchung mit Umsatzsteuer', () => {
@@ -40,8 +79,8 @@ describe('Buchungsvalidierung / Soll-Haben-Ausgleich', () => {
         date: '2026-10-09',
         documentNumber: 'RE-TEST-1',
         description: 'Warenverkauf Test',
-        debitAccount: '1400',
-        creditAccount: '8400',
+        debitAccount: '240',
+        creditAccount: '501',
         netAmountCents: 20000,
         vatRate: 19,
       },
@@ -54,7 +93,7 @@ describe('Buchungsvalidierung / Soll-Haben-Ausgleich', () => {
     const { debitCents, creditCents } = sumLines(result.entry.lines)
     expect(debitCents).toBe(creditCents)
     expect(creditCents).toBe(23800)
-    expect(result.entry.lines.some((line) => line.accountNumber === '1776')).toBe(
+    expect(result.entry.lines.some((line) => line.accountNumber === '480')).toBe(
       true,
     )
   })
@@ -65,8 +104,8 @@ describe('Buchungsvalidierung / Soll-Haben-Ausgleich', () => {
         date: '2026-10-09',
         documentNumber: 'ER-NOVAT',
         description: 'Wareneinkauf ohne USt',
-        debitAccount: '3400',
-        creditAccount: '1600',
+        debitAccount: '608',
+        creditAccount: '44',
         netAmountCents: 10000,
         vatRate: 19,
       },
@@ -90,8 +129,8 @@ describe('Buchungsvalidierung / Soll-Haben-Ausgleich', () => {
         date: '2026-10-09',
         documentNumber: 'RE-NOVAT',
         description: 'Warenverkauf ohne USt',
-        debitAccount: '1400',
-        creditAccount: '8400',
+        debitAccount: '240',
+        creditAccount: '501',
         netAmountCents: 20000,
         vatRate: 19,
       },
@@ -104,8 +143,8 @@ describe('Buchungsvalidierung / Soll-Haben-Ausgleich', () => {
       false,
     )
     expect(revenue.entry.lines).toEqual([
-      { accountNumber: '1400', debitCents: 20000, creditCents: 0 },
-      { accountNumber: '8400', debitCents: 0, creditCents: 20000 },
+      { accountNumber: '240', debitCents: 20000, creditCents: 0 },
+      { accountNumber: '501', debitCents: 0, creditCents: 20000 },
     ])
   })
 
@@ -115,8 +154,8 @@ describe('Buchungsvalidierung / Soll-Haben-Ausgleich', () => {
         date: '2026-10-09',
         documentNumber: 'XX-1',
         description: 'Falsche Konten mit USt',
-        debitAccount: '1400',
-        creditAccount: '1600',
+        debitAccount: '240',
+        creditAccount: '44',
         netAmountCents: 10000,
         vatRate: 19,
       },
@@ -133,8 +172,8 @@ describe('Buchungsvalidierung / Soll-Haben-Ausgleich', () => {
         date: '',
         documentNumber: '',
         description: 'x',
-        debitAccount: '3400',
-        creditAccount: '3400',
+        debitAccount: '608',
+        creditAccount: '608',
         netAmountCents: 0,
         vatRate: 19,
       },

@@ -20,7 +20,7 @@ export function DashboardPage() {
   const journalKpis = useMemo(() => buildJournalKpis(entries).slice(0, 4), [entries])
   const activities = useMemo(() => journalEntriesToActivities(entries, 6), [entries])
   const balances = useMemo(
-    () => getAccountBalances(entries, ['1200', '1400', '1600']),
+    () => getAccountBalances(entries, ['280', '240', '44']),
     [entries],
   )
 
