@@ -333,7 +333,7 @@ begin
       tax_amount_cents, gross_amount_cents
     ) values (
       org_a, current_date, 'J-DENIED', 'no direct write',
-      '4920', '1000', 100, 0, 0, 100
+      '680', '282', 100, 0, 0, 100
     );
   exception when insufficient_privilege then
     raised := true;
@@ -355,12 +355,12 @@ begin
       tax_amount_cents, gross_amount_cents
     ) values (
       org_a, current_date, 'J-UNBAL', 'unbalanced',
-      '4920', '1000', 100, 0, 0, 100
+      '680', '282', 100, 0, 0, 100
     ) returning id into entry_id;
 
     insert into public.journal_lines (
       organization_id, journal_entry_id, account_number, debit_cents, credit_cents
-    ) values (org_a, entry_id, '4920', 100, 0);
+    ) values (org_a, entry_id, '680', 100, 0);
 
     set constraints all immediate;
     perform public.review_expect('JOURNAL_BALANCE', false, 'expected deferred balance failure');

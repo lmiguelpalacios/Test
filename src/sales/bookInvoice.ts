@@ -1,5 +1,6 @@
 import type { JournalEntryDraft } from '../types/accounting'
 import type { Customer, SalesInvoice } from '../types/sales'
+import { RECEIVABLE_ACCOUNT } from '../data/chart-of-accounts'
 import {
   calculateInvoiceTotals,
   groupLinesByVatRate,
@@ -52,7 +53,7 @@ export function buildInvoiceBookingDrafts(
       date: invoice.issueDate,
       documentNumber: invoice.number,
       description: `Ausgangsrechnung ${invoice.number} an ${customer.companyName}`,
-      debitAccount: '1400',
+      debitAccount: RECEIVABLE_ACCOUNT,
       creditAccount: revenueAccountForVat(vatRate),
       netAmountCents: group.netCents,
       vatRate,

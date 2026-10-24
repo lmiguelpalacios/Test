@@ -54,18 +54,18 @@ export function sumByAccountType(
 }
 
 function activityKindFor(entry: JournalEntry): ActivityKind {
-  if (entry.debitAccount === '1200' || entry.creditAccount === '1200') {
-    if (entry.debitAccount === '1400' || entry.creditAccount === '1400') {
+  if (entry.debitAccount === '280' || entry.creditAccount === '280') {
+    if (entry.debitAccount === '240' || entry.creditAccount === '240') {
       return 'zahlung'
     }
-    if (entry.debitAccount === '1600' || entry.creditAccount === '1600') {
+    if (entry.debitAccount === '44' || entry.creditAccount === '44') {
       return 'zahlung'
     }
   }
-  if (entry.creditAccount === '8400' || entry.creditAccount === '8300') {
+  if (entry.creditAccount === '501') {
     return 'rechnung'
   }
-  if (entry.debitAccount === '3400' || entry.debitAccount === '3300') {
+  if (entry.debitAccount === '608' || entry.debitAccount === '604') {
     return 'einkauf'
   }
   return 'rechnung'
@@ -90,9 +90,9 @@ export function journalEntriesToActivities(
 export function buildJournalKpis(entries: JournalEntry[]): KpiMetric[] {
   const { revenueCents, expenseCents } = sumByAccountType(entries)
   const resultCents = revenueCents - expenseCents
-  const bankCents = computeAccountBalanceCents(entries, '1200')
-  const receivablesCents = computeAccountBalanceCents(entries, '1400')
-  const payablesCents = -computeAccountBalanceCents(entries, '1600')
+  const bankCents = computeAccountBalanceCents(entries, '280')
+  const receivablesCents = computeAccountBalanceCents(entries, '240')
+  const payablesCents = -computeAccountBalanceCents(entries, '44')
 
   return [
     {
@@ -121,18 +121,18 @@ export function buildJournalKpis(entries: JournalEntry[]): KpiMetric[] {
       label: 'Bankbewegung',
       value: centsToEuros(bankCents),
       format: 'currency',
-      hint: 'Konto 1200 nur aus Journal — ohne Anfangsbestand',
+      hint: 'Konto 280 nur aus Journal — ohne Anfangsbestand',
     },
     {
       id: 'journal-receivables',
-      label: 'Forderungen 1400',
+      label: 'Forderungen 240',
       value: centsToEuros(receivablesCents),
       format: 'currency',
       hint: 'Saldo aus Journalbewegungen',
     },
     {
       id: 'journal-payables',
-      label: 'Verbindlichkeiten 1600',
+      label: 'Verbindlichkeiten 44',
       value: centsToEuros(Math.max(0, payablesCents)),
       format: 'currency',
       hint: 'Saldo aus Journalbewegungen',

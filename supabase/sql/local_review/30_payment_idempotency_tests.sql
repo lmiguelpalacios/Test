@@ -90,10 +90,10 @@ begin
   perform public.book_sales_invoice(org_a, inv_ze);
 
   pay1 := public.record_sales_payment(
-    org_a, inv_ze, current_date, 500, '1200', 'TEIL-A'
+    org_a, inv_ze, current_date, 500, '280', 'TEIL-A'
   );
   pay2 := public.record_sales_payment(
-    org_a, inv_ze, current_date, 800, '1200', 'TEIL-B'
+    org_a, inv_ze, current_date, 800, '280', 'TEIL-B'
   );
   reset role;
 
@@ -111,7 +111,7 @@ begin
   perform set_config('request.jwt.claim.sub', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa3', false);
   set role authenticated;
   pay3 := public.record_sales_payment(
-    org_a, inv_ze, current_date, 500, '1200', 'TEIL-A'
+    org_a, inv_ze, current_date, 500, '280', 'TEIL-A'
   );
   reset role;
 
@@ -129,7 +129,7 @@ begin
   perform set_config('request.jwt.claim.sub', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa3', false);
   set role authenticated;
   pay3 := public.record_sales_payment(
-    org_a, inv_ze, current_date, 500, '1200', 'TEIL-C'
+    org_a, inv_ze, current_date, 500, '280', 'TEIL-C'
   );
   reset role;
 
@@ -148,10 +148,10 @@ begin
   set role authenticated;
   -- remaining: 2380 - 500 - 800 - 500 = 580
   pay_null := public.record_sales_payment(
-    org_a, inv_ze, current_date, 200, '1000', null
+    org_a, inv_ze, current_date, 200, '282', null
   );
   pay_empty := public.record_sales_payment(
-    org_a, inv_ze, current_date, 200, '1000', ''
+    org_a, inv_ze, current_date, 200, '282', ''
   );
   reset role;
 
@@ -162,7 +162,7 @@ begin
   );
   select count(*) into n
   from public.sales_payments
-  where invoice_id = inv_ze and amount_cents = 200 and bank_account = '1000';
+  where invoice_id = inv_ze and amount_cents = 200 and bank_account = '282';
   perform public.pay_idem_expect(
     'ZE_NULL_EMPTY_SINGLE_ROW', n = 1, format('rows=%s', n)
   );
@@ -183,7 +183,7 @@ begin
 
   perform public.book_sales_invoice(org_a, inv_ze);
   pay1 := public.record_sales_payment(
-    org_a, inv_ze, current_date, 300, '1200', 'UQ-KEY'
+    org_a, inv_ze, current_date, 300, '280', 'UQ-KEY'
   );
   reset role;
 
@@ -194,7 +194,7 @@ begin
       organization_id, invoice_id, payment_date, amount_cents,
       bank_account, reference
     ) values (
-      org_a, inv_ze, current_date, 300, '1200', 'UQ-KEY'
+      org_a, inv_ze, current_date, 300, '280', 'UQ-KEY'
     );
   exception when unique_violation then
     raised := true;
@@ -222,18 +222,18 @@ begin
   insert into public.vendor_invoice_lines (
     organization_id, invoice_id, product_id, description,
     quantity, net_unit_price_cents, vat_rate, expense_account
-  ) values (org_a, inv_za, prod_a, 'Ware', 1, 1000, 19, '3400');
+  ) values (org_a, inv_za, prod_a, 'Ware', 1, 1000, 19, '608');
 
   perform public.book_vendor_invoice(org_a, inv_za);
 
   pay1 := public.record_vendor_payment(
-    org_a, inv_za, current_date, 400, '1200', 'ZA-TEIL-1'
+    org_a, inv_za, current_date, 400, '280', 'ZA-TEIL-1'
   );
   pay2 := public.record_vendor_payment(
-    org_a, inv_za, current_date, 390, '1200', 'ZA-TEIL-2'
+    org_a, inv_za, current_date, 390, '280', 'ZA-TEIL-2'
   );
   pay3 := public.record_vendor_payment(
-    org_a, inv_za, current_date, 400, '1200', 'ZA-TEIL-1'
+    org_a, inv_za, current_date, 400, '280', 'ZA-TEIL-1'
   );
   reset role;
 
@@ -260,11 +260,11 @@ begin
   insert into public.vendor_invoice_lines (
     organization_id, invoice_id, product_id, description,
     quantity, net_unit_price_cents, vat_rate, expense_account
-  ) values (org_a, inv_za, prod_a, 'UQ', 1, 1000, 19, '3400');
+  ) values (org_a, inv_za, prod_a, 'UQ', 1, 1000, 19, '608');
 
   perform public.book_vendor_invoice(org_a, inv_za);
   pay1 := public.record_vendor_payment(
-    org_a, inv_za, current_date, 300, '1200', 'ZA-UQ-KEY'
+    org_a, inv_za, current_date, 300, '280', 'ZA-UQ-KEY'
   );
   reset role;
 
@@ -275,7 +275,7 @@ begin
       organization_id, invoice_id, payment_date, amount_cents,
       bank_account, reference
     ) values (
-      org_a, inv_za, current_date, 300, '1200', 'ZA-UQ-KEY'
+      org_a, inv_za, current_date, 300, '280', 'ZA-UQ-KEY'
     );
   exception when unique_violation then
     raised := true;
@@ -314,7 +314,7 @@ begin
     reference text not null
   );
   insert into public._pay_idem_parallel_seed values (
-    org_a, inv_parallel, current_date, 500, '1200', 'PAR-STRESS'
+    org_a, inv_parallel, current_date, 500, '280', 'PAR-STRESS'
   );
 
   perform public.pay_idem_expect(

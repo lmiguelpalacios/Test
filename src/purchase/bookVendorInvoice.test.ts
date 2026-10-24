@@ -23,7 +23,7 @@ describe('Eingangsrechnungsbuchung', () => {
     if (!validated.ok) return
     const { debitCents, creditCents } = sumLines(validated.entry.lines)
     expect(isBalanced(debitCents, creditCents)).toBe(true)
-    expect(validated.entry.lines.some((line) => line.accountNumber === '1600')).toBe(
+    expect(validated.entry.lines.some((line) => line.accountNumber === '44')).toBe(
       true,
     )
   })
@@ -50,7 +50,7 @@ describe('Eingangsrechnungsbuchung', () => {
           quantity: 1,
           netUnitPriceCents: 1000,
           vatRate: 19,
-          expenseAccount: '1400',
+          expenseAccount: '240',
         },
       ],
     }

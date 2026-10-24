@@ -54,7 +54,7 @@ export interface ModuleCapabilities {
 export interface PaymentInput {
   date: string
   amountCents: number
-  bankAccount: '1200' | '1000'
+  bankAccount: '280' | '282'
   reference?: string
 }
 

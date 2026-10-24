@@ -42,7 +42,7 @@ export function buildVendorPaymentDraft(
   input: {
     date: string
     amountCents: number
-    bankAccount: '1200' | '1000'
+    bankAccount: '280' | '282'
     reference?: string
   },
 ): VendorPaymentDraftResult {
@@ -79,7 +79,7 @@ export function buildVendorPaymentDraft(
       description:
         input.reference?.trim() ||
         `Zahlungsausgang zu ${invoice.internalNumber}`,
-      debitAccount: '1600',
+      debitAccount: '44',
       creditAccount: input.bankAccount,
       netAmountCents: input.amountCents,
       vatRate: 0,

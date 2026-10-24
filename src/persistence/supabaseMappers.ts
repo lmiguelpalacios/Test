@@ -121,7 +121,8 @@ export function mapSalesPayment(row: Record<string, unknown>): InvoicePayment {
     invoiceId: String(row.invoice_id),
     date: String(row.payment_date),
     amountCents: Number(row.amount_cents),
-    bankAccount: row.bank_account === '1000' ? '1000' : '1200',
+    bankAccount:
+      row.bank_account === '282' || row.bank_account === '1000' ? '282' : '280',
     reference: row.reference ? String(row.reference) : undefined,
     journalEntryId: String(row.journal_entry_id ?? ''),
     createdAt: String(row.created_at),
@@ -209,7 +210,8 @@ export function mapVendorPayment(row: Record<string, unknown>): VendorPayment {
     invoiceId: String(row.invoice_id),
     date: String(row.payment_date),
     amountCents: Number(row.amount_cents),
-    bankAccount: row.bank_account === '1000' ? '1000' : '1200',
+    bankAccount:
+      row.bank_account === '282' || row.bank_account === '1000' ? '282' : '280',
     reference: row.reference ? String(row.reference) : undefined,
     journalEntryId: String(row.journal_entry_id ?? ''),
     createdAt: String(row.created_at),

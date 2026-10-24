@@ -62,8 +62,8 @@ describe('Lernmodus-Bewertung', () => {
     const result = evaluateLearningAnswer(task, {
       kind: 'booking',
       answer: {
-        debitAccount: '3400',
-        creditAccount: '1200',
+        debitAccount: '608',
+        creditAccount: '280',
         netAmountCents: 1_00_000,
         vatRate: 0,
       },

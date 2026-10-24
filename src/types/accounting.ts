@@ -1,4 +1,4 @@
-/** Kontotypen im vereinfachten Lernkontenplan (an SKR 03 angelehnt). */
+/** Kontotypen im Schulkontenrahmen Industrie. */
 export type AccountType = 'aktiv' | 'passiv' | 'aufwand' | 'ertrag'
 
 export type AccountGroup =

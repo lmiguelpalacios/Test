@@ -68,8 +68,8 @@ describe('Journal-Persistenz (localStorage)', () => {
       {
         ...initialJournalEntries[0],
         lines: [
-          { accountNumber: '3400', debitCents: 100, creditCents: 0 },
-          { accountNumber: '1600', debitCents: 0, creditCents: 50 },
+          { accountNumber: '608', debitCents: 100, creditCents: 0 },
+          { accountNumber: '44', debitCents: 0, creditCents: 50 },
         ],
       },
       initialJournalEntries[1],

@@ -39,7 +39,7 @@ describe('Zahlungseingänge', () => {
         invoiceId: invoice.id,
         date: '2026-10-11',
         amountCents: 5000,
-        bankAccount: '1200',
+        bankAccount: '280',
         journalEntryId: 'je-p1',
         createdAt: '2026-10-11T09:00:00',
       },
@@ -61,21 +61,21 @@ describe('Zahlungseingänge', () => {
     const ok = buildPaymentBookingDraft(invoice, [], {
       date: '2026-10-12',
       amountCents: 5000,
-      bankAccount: '1200',
+      bankAccount: '280',
     })
     expect(ok.ok).toBe(true)
     if (!ok.ok) return
     const validated = validateJournalEntry(ok.draft, chartOfAccounts)
     expect(validated.ok).toBe(true)
     if (!validated.ok) return
-    expect(validated.entry.debitAccount).toBe('1200')
-    expect(validated.entry.creditAccount).toBe('1400')
+    expect(validated.entry.debitAccount).toBe('280')
+    expect(validated.entry.creditAccount).toBe('240')
 
     const gross = calculateInvoiceTotals(invoice.lines).grossCents
     const over = buildPaymentBookingDraft(invoice, [], {
       date: '2026-10-12',
       amountCents: gross + 1,
-      bankAccount: '1200',
+      bankAccount: '280',
     })
     expect(over.ok).toBe(false)
   })
@@ -85,7 +85,7 @@ describe('Zahlungseingänge', () => {
     const result = buildPaymentBookingDraft(draft, [], {
       date: '2026-10-12',
       amountCents: 1000,
-      bankAccount: '1200',
+      bankAccount: '280',
     })
     expect(result.ok).toBe(false)
   })

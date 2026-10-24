@@ -50,8 +50,8 @@ export function LearningTaskDetail() {
   const task = taskId ? getLearningTaskById(taskId) : undefined
   const progress = learning.progress.find((item) => item.taskId === taskId)
 
-  const [debitAccount, setDebitAccount] = useState('3400')
-  const [creditAccount, setCreditAccount] = useState('1600')
+  const [debitAccount, setDebitAccount] = useState('608')
+  const [creditAccount, setCreditAccount] = useState('44')
   const [netInput, setNetInput] = useState('')
   const [vatRate, setVatRate] = useState<VatRate>(19)
   const [tDraft, setTDraft] = useState<TAccountDraft[]>([])

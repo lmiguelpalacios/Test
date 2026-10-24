@@ -244,7 +244,7 @@ function isValidPayment(value: unknown): value is SalesState['payments'][number]
     typeof value.date === 'string' &&
     isNonNegInt(value.amountCents) &&
     value.amountCents > 0 &&
-    (value.bankAccount === '1200' || value.bankAccount === '1000') &&
+    (value.bankAccount === '280' || value.bankAccount === '282') &&
     typeof value.journalEntryId === 'string' &&
     typeof value.createdAt === 'string'
   )
@@ -334,7 +334,7 @@ function isValidVendorPayment(
     typeof value.date === 'string' &&
     isNonNegInt(value.amountCents) &&
     value.amountCents > 0 &&
-    (value.bankAccount === '1200' || value.bankAccount === '1000') &&
+    (value.bankAccount === '280' || value.bankAccount === '282') &&
     typeof value.journalEntryId === 'string' &&
     typeof value.createdAt === 'string'
   )

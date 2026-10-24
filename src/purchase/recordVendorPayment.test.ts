@@ -37,21 +37,21 @@ describe('Zahlungsausgang Eingangsrechnung', () => {
     const over = buildVendorPaymentDraft(invoice, [], {
       date: '2026-10-12',
       amountCents: gross + 1,
-      bankAccount: '1200',
+      bankAccount: '280',
     })
     expect(over.ok).toBe(false)
 
     const ok = buildVendorPaymentDraft(invoice, [], {
       date: '2026-10-12',
       amountCents: 1000,
-      bankAccount: '1200',
+      bankAccount: '280',
     })
     expect(ok.ok).toBe(true)
     if (!ok.ok) return
     const validated = validateJournalEntry(ok.draft, chartOfAccounts)
     expect(validated.ok).toBe(true)
     if (!validated.ok) return
-    expect(validated.entry.debitAccount).toBe('1600')
-    expect(validated.entry.creditAccount).toBe('1200')
+    expect(validated.entry.debitAccount).toBe('44')
+    expect(validated.entry.creditAccount).toBe('280')
   })
 })
