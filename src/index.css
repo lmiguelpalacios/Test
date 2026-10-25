@@ -1464,3 +1464,132 @@ button.text-link {
 .abschluss-total-row {
   margin-top: 0.75rem;
 }
+
+.training-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.training-checklist-body {
+  list-style: none;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.training-step {
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  cursor: pointer;
+}
+
+.training-step.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.training-status {
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+
+.status-offen { color: var(--text-muted); }
+.status-in_bearbeitung { color: var(--accent); }
+.status-fehlerhaft { color: var(--danger); }
+.status-korrekt { color: var(--success); }
+.status-uebersprungen { color: var(--text-secondary); }
+
+.training-progress-mark,
+.training-lock,
+.training-account-name {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.training-checklist-toggle {
+  display: none;
+}
+
+.training-events {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.training-event {
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+}
+
+.training-event h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+}
+
+.training-lines,
+.training-line {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.5rem;
+  align-items: end;
+  margin: 0.5rem 0;
+}
+
+.training-postings {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  list-style: none;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.training-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+}
+
+.training-table th,
+.training-table td {
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  padding: 0.3rem 0.4rem;
+}
+
+.training-solution {
+  white-space: pre-wrap;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  background: var(--bg-muted);
+  padding: 0.75rem;
+  border-radius: var(--radius-sm);
+}
+
+@media (max-width: 800px) {
+  .training-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .training-checklist-toggle {
+    display: inline-flex;
+  }
+
+  .training-layout:not(.is-open) .training-checklist-body {
+    display: none;
+  }
+}
