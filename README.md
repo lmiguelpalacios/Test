@@ -40,12 +40,14 @@ npm test
 - Lernmodus: Bewertung lokal/online; Übungsjournal-Übernahme online noch gesperrt
 - Expliziter Workspace-Import-Wizard unter Einstellungen (Supabase/Owner); setzt `organizations.vat_enabled`
 - Dashboard: Journal-Kennzahlen; YTD-Grafik bleibt separate Demo
+- Geführtes Abschluss-Training: `/berichte/abschluss` — ein Fall, Fortschritt nur lokal. Details: `docs/abschluss-training.md`
 
 
 ## Struktur
 
 ```
 src/
+  abschluss/    # Abschluss-Übungen und geführtes Training
   accounting/   # Journal, Persistenz, AccountingProvider
   components/   # UI (…, Berichte, Lernmodus)
   data/         # Demo-Daten inkl. Lernaufgaben
@@ -67,7 +69,7 @@ supabase/       # Stub — nicht angebunden
 | Buchhaltung    | Übersicht, Kontenplan, Buchungserfassung    |
 | Verkauf        | Kunden, Produkte, Rechnungen, Zahlungen     |
 | Einkauf        | Lieferanten, Bestellungen, WE, ER, Zahlungen|
-| Berichte       | SuSa, Kontenblatt, GuV, Bilanz, offene Posten|
+| Berichte       | SuSa, Kontenblatt, GuV, Bilanz, Abschluss üben |
 | Lernmodus      | Aufgaben, Bewertung, Fortschritt (lokal)    |
 | Einstellungen  | Platzhalter                                 |
 

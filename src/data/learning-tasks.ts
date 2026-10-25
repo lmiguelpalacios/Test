@@ -34,18 +34,18 @@ export const learningTasks: LearningTask[] = [
     difficulty: 'leicht',
     kind: 'booking',
     scenario:
-      'Ein Kunde überweist 500,00 € netto ohne USt auf das Bankkonto der Nordlicht Handels GmbH als Anzahlung auf eine spätere Lieferung. Buche den Zahlungseingang gegen Verbindlichkeiten (erhaltene Anzahlungen vereinfacht über 1600).',
+      'Ein Kunde überweist 500,00 € netto ohne USt auf das Bankkonto der Nordlicht Handels GmbH als Anzahlung auf eine spätere Lieferung. Buche den Zahlungseingang gegen erhaltene Anzahlungen (43).',
     solution: {
-      debitAccount: '1200',
-      creditAccount: '1600',
+      debitAccount: '280',
+      creditAccount: '43',
       netAmountCents: 50_000,
       vatRate: 0,
     },
     explanation:
       'Die Bank (Aktivkonto) nimmt im Soll zu. Gleichzeitig entsteht eine Verbindlichkeit (Passiv) im Haben. Ohne USt bleibt der Betrag brutto = netto.',
     effects: {
-      assets: 'Bank (1200) steigt',
-      liabilities: 'Verbindlichkeiten (1600) steigen',
+      assets: 'Bank (280) steigt',
+      liabilities: 'Erhaltene Anzahlungen (43) steigen',
     },
     maxPoints: 4,
     allowPracticeJournalPost: true,
@@ -60,13 +60,13 @@ export const learningTasks: LearningTask[] = [
     scenario:
       'Nordlicht zahlt Büromiete 1.200,00 € netto zuzüglich 19 % USt per Bank. Welches Konto gehört ins Soll, welches ins Haben?',
     solution: {
-      debitAccount: '4210',
-      creditAccount: '1200',
+      debitAccount: '670',
+      creditAccount: '280',
       netAmountCents: 1_200_00,
       vatRate: 19,
     },
     explanation:
-      'Aufwandskonto Miete (4210) wird im Soll bebucht; die Bank mindert im Haben. Die Vorsteuer entsteht automatisch über die USt-Logik des Lernjournals (Aufwand + VSt an Bank).',
+      'Aufwandskonto Mieten, Pachten (670) wird im Soll bebucht; die Bank (280) mindert im Haben. Die Vorsteuer (260) entsteht automatisch über die USt-Logik des Lernjournals.',
     effects: {
       assets: 'Bank sinkt; Vorsteuer steigt',
       result: 'Aufwand steigt → Periodenergebnis sinkt',
@@ -84,13 +84,13 @@ export const learningTasks: LearningTask[] = [
     scenario:
       'Barzahlung für Bürobedarf: 80,00 € netto + 19 % USt aus der Kasse.',
     solution: {
-      debitAccount: '4920',
-      creditAccount: '1000',
+      debitAccount: '680',
+      creditAccount: '282',
       netAmountCents: 8_000,
       vatRate: 19,
     },
     explanation:
-      'Bürobedarf (Aufwand) im Soll, Kasse (Aktiv) im Haben. Mit 19 % entsteht abziehbare Vorsteuer.',
+      'Büromaterial (680) im Soll, Kasse (282) im Haben. Mit 19 % entsteht abziehbare Vorsteuer auf 260.',
     effects: {
       assets: 'Kasse sinkt; Vorsteuer steigt',
       result: 'Aufwand erhöht',
@@ -108,13 +108,13 @@ export const learningTasks: LearningTask[] = [
     scenario:
       'Wareneinkauf bei Ostsee Papier & Pack: 1.000,00 € netto, 19 % Vorsteuer, Zahlung später (Verbindlichkeiten).',
     solution: {
-      debitAccount: '3400',
-      creditAccount: '1600',
+      debitAccount: '608',
+      creditAccount: '44',
       netAmountCents: 1_00_000,
       vatRate: 19,
     },
     explanation:
-      'Wareneingang 19 % (3400) im Soll, Verbindlichkeiten L+L (1600) im Haben über Brutto. Aufwand entsteht mit der Rechnung — nicht erst bei Zahlung oder Wareneingang physisch.',
+      'Aufwendungen für Handelswaren (608) im Soll, Verbindlichkeiten L+L (44) im Haben über Brutto. Der Kontenplan trennt den Steuersatz nicht auf eigene Wareneingangskonten. Aufwand entsteht mit der Rechnung — nicht erst bei Zahlung oder physischem Wareneingang. Vorsteuer 19 % geht auf 260.',
     effects: {
       assets: 'Vorsteuer steigt',
       liabilities: 'Verbindlichkeiten steigen',
@@ -133,8 +133,8 @@ export const learningTasks: LearningTask[] = [
     scenario:
       'Begleichung einer bereits gebuchten Eingangsrechnung: 1.190,00 € brutto (entspricht 1.000 € netto + 19 %) per Bank. Keine erneute Aufwandbuchung.',
     solution: {
-      debitAccount: '1600',
-      creditAccount: '1200',
+      debitAccount: '44',
+      creditAccount: '280',
       netAmountCents: 1_190_00,
       vatRate: 0,
     },
@@ -158,13 +158,13 @@ export const learningTasks: LearningTask[] = [
     scenario:
       'Ausgangsrechnung an Küstenküche AG: 2.000,00 € netto Erlöse 19 %, Forderung entsteht.',
     solution: {
-      debitAccount: '1400',
-      creditAccount: '8400',
+      debitAccount: '240',
+      creditAccount: '501',
       netAmountCents: 2_00_000,
       vatRate: 19,
     },
     explanation:
-      'Forderungen (1400) im Soll über Brutto, Erlöse 19 % (8400) im Haben über Netto; Umsatzsteuer wird vom Journal ergänzt.',
+      'Forderungen (240) im Soll über Brutto, Umsatzerlöse für Handelswaren (501) im Haben über Netto. Umsatzsteuer 19 % wird auf Konto 480 ergänzt.',
     effects: {
       assets: 'Forderungen steigen',
       result: 'Erlöse steigen → Periodenergebnis steigt',
@@ -183,8 +183,8 @@ export const learningTasks: LearningTask[] = [
     scenario:
       'Kunde überweist 2.380,00 € brutto auf die Bank zur Begleichung einer gebuchten Ausgangsrechnung (2.000 € + 19 %).',
     solution: {
-      debitAccount: '1200',
-      creditAccount: '1400',
+      debitAccount: '280',
+      creditAccount: '240',
       netAmountCents: 2_380_00,
       vatRate: 0,
     },
@@ -207,15 +207,15 @@ export const learningTasks: LearningTask[] = [
     scenario:
       'Einkauf Bio-Gewürze: 500,00 € netto zum ermäßigten Satz 7 %, auf Rechnung (Verbindlichkeiten).',
     solution: {
-      debitAccount: '3300',
-      creditAccount: '1600',
+      debitAccount: '608',
+      creditAccount: '44',
       netAmountCents: 50_000,
       vatRate: 7,
     },
     explanation:
-      'Wareneingang 7 % (3300) im Soll, Verbindlichkeiten im Haben. Vorsteuerkonto 1571 wird vom Journal bei USt 7 % ergänzt — nicht manuell als Primärkonto gewählt.',
+      'Aufwendungen für Handelswaren (608) im Soll, Verbindlichkeiten (44) im Haben. Es gibt kein eigenes 7-%-Wareneingangskonto. Vorsteuer 260 wird vom Journal bei USt 7 % ergänzt — nicht manuell als Primärkonto gewählt.',
     effects: {
-      assets: 'Vorsteuer 7 % steigt',
+      assets: 'Vorsteuer (260) steigt',
       liabilities: 'Verbindlichkeiten steigen',
       result: 'Aufwand steigt',
     },
@@ -232,13 +232,13 @@ export const learningTasks: LearningTask[] = [
     scenario:
       'Verkauf ermäßigt besteuerter Ware: 300,00 € netto, 7 % USt, auf Ziel (Forderung).',
     solution: {
-      debitAccount: '1400',
-      creditAccount: '8300',
+      debitAccount: '240',
+      creditAccount: '501',
       netAmountCents: 30_000,
       vatRate: 7,
     },
     explanation:
-      'Erlöse 7 % liegen auf Konto 8300. Forderung im Soll (Brutto), USt 1771 ergänzt das Journal automatisch.',
+      'Umsatzerlöse für Handelswaren liegen auf Konto 501, auch bei 7 %. Forderung (240) im Soll (Brutto), Umsatzsteuer 480 ergänzt das Journal automatisch.',
     effects: {
       assets: 'Forderungen steigen',
       liabilities: 'Umsatzsteuer steigt',
@@ -250,15 +250,15 @@ export const learningTasks: LearningTask[] = [
   {
     id: 'lt-10',
     number: 10,
-    title: 'Wirkung auf GuV: Fahrzeugkosten',
+    title: 'Wirkung auf GuV: Energie und Treibstoffe',
     topic: 'bilanz_guv',
     difficulty: 'schwer',
     kind: 'booking',
     scenario:
-      'Sofortzahlung Fahrzeugkosten 250,00 € netto + 19 % USt per Bank. Welche Buchung erfasst den Aufwand korrekt?',
+      'Sofortzahlung für Energie und Treibstoffe 250,00 € netto + 19 % USt per Bank (Konto 605). Welche Buchung erfasst den Aufwand korrekt?',
     solution: {
-      debitAccount: '4500',
-      creditAccount: '1200',
+      debitAccount: '605',
+      creditAccount: '280',
       netAmountCents: 25_000,
       vatRate: 19,
     },
@@ -282,8 +282,8 @@ export const learningTasks: LearningTask[] = [
     scenario:
       'Privatdarlehen wird ausgezahlt: 5.000,00 € gehen auf das Bankkonto (Passivzuwachs und Aktivzuwachs). Ohne USt.',
     solution: {
-      debitAccount: '1200',
-      creditAccount: '1800',
+      debitAccount: '280',
+      creditAccount: '489',
       netAmountCents: 5_00_000,
       vatRate: 0,
     },
@@ -291,7 +291,7 @@ export const learningTasks: LearningTask[] = [
       'Bank und sonstige Verbindlichkeiten steigen gleichermaßen — Bilanzverlängerung ohne Erfolgswirkung. Kein Aufwand, kein Ertrag.',
     effects: {
       assets: 'Bank steigt',
-      liabilities: 'Privatdarlehen/sonst. Verbindlichkeiten steigen',
+      liabilities: 'Sonstige Verbindlichkeiten (489) steigen',
       result: 'keine GuV-Wirkung',
     },
     maxPoints: 4,
@@ -307,8 +307,8 @@ export const learningTasks: LearningTask[] = [
     scenario:
       'Reparatur Werkstatt: 150,00 € netto + 19 % USt, Rechnung noch offen.',
     solution: {
-      debitAccount: '4800',
-      creditAccount: '1600',
+      debitAccount: '613',
+      creditAccount: '44',
       netAmountCents: 15_000,
       vatRate: 19,
     },

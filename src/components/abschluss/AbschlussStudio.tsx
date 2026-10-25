@@ -54,7 +54,7 @@ const PEDAGOGY: Record<AbschlussStep, { title: string; body: string }> = {
   },
 }
 
-export function AbschlussStudio() {
+export function AbschlussStudio({ onBackToCase }: { onBackToCase?: () => void }) {
   const { entries, persistWarning } = useAccounting()
   const [step, setStep] = useState<AbschlussStep>('t_accounts')
   const [asOf, setAsOf] = useState('2026-10-08')
@@ -125,9 +125,16 @@ export function AbschlussStudio() {
         title="Abschluss üben"
         subtitle={`${entries.length} Journalbuchungen · T-Konten, Bilanz, GuV selbst aufstellen`}
         actions={
-          <Link to="/berichte" className="btn btn-secondary">
-            Zur Berichte-Übersicht
-          </Link>
+          <>
+            {onBackToCase ? (
+              <button type="button" className="btn btn-secondary" onClick={onBackToCase}>
+                Geführter Fall
+              </button>
+            ) : null}
+            <Link to="/berichte" className="btn btn-secondary">
+              Zur Berichte-Übersicht
+            </Link>
+          </>
         }
       />
 

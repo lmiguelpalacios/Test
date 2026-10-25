@@ -109,7 +109,7 @@ export function buildBalanceSheet(
     REPORT_SIMPLIFICATION_NOTICE,
     NO_OPENING_BALANCE_NOTICE,
     'Periodenergebnis = Erträge − Aufwendungen bis Stichtag (kein GuV-Abschluss auf Eigenkapital gebucht).',
-    'Bestandskonto 3980 bleibt unberührt — keine periodengerechte Warenbuchhaltung.',
+    'Bestandskonto 221 Handelswaren bleibt unberührt — keine periodengerechte Warenbuchhaltung.',
   ]
   if (unknownWithBalance.length > 0) {
     notices.push(
@@ -118,7 +118,7 @@ export function buildBalanceSheet(
   }
   if (equityAccounts.length === 0) {
     notices.push(
-      'Keine Eigenkapitalbuchungen (z. B. 0800/0860) im Journal — nur Periodenergebnis als Eigenkapitalbestandteil.',
+      'Keine Eigenkapitalbuchungen (z. B. 300/332) im Journal — nur Periodenergebnis als Eigenkapitalbestandteil.',
     )
   }
 

@@ -29,29 +29,29 @@ describe('Abschluss-Evaluatoren', () => {
   it('T-Konten: fehlendes Konto und Extra-Konto erzeugen Fehler', () => {
     const full = expectedTAccountsAsDraft(initialJournalEntries, AS_OF)
     const draft = full
-      .filter((row) => row.accountNumber !== '1200')
+      .filter((row) => row.accountNumber !== '280')
       .concat([
-        { accountNumber: '1000', balanceCents: 99, side: 'soll' },
+        { accountNumber: '282', balanceCents: 99, side: 'soll' },
       ])
     const result = evaluateTAccounts(initialJournalEntries, AS_OF, draft)
     expect(result.fullyCorrect).toBe(false)
     expect(
-      result.criteria.some((c) => c.id === 't_account:1200' && !c.ok),
+      result.criteria.some((c) => c.id === 't_account:280' && !c.ok),
     ).toBe(true)
     expect(
-      result.criteria.some((c) => c.id === 't_account_extra:1000' && !c.ok),
+      result.criteria.some((c) => c.id === 't_account_extra:282' && !c.ok),
     ).toBe(true)
   })
 
   it('T-Konten: falsche Seite bei korrektem Betrag', () => {
     const draft = expectedTAccountsAsDraft(initialJournalEntries, AS_OF).map(
       (row) =>
-        row.accountNumber === '1400'
+        row.accountNumber === '240'
           ? { ...row, side: 'haben' as const }
           : row,
     )
     const result = evaluateTAccounts(initialJournalEntries, AS_OF, draft)
-    const row = result.criteria.find((c) => c.id === 't_account:1400')
+    const row = result.criteria.find((c) => c.id === 't_account:240')
     expect(row?.ok).toBe(false)
     expect(row?.feedback).toMatch(/Seite/)
   })
@@ -67,12 +67,12 @@ describe('Abschluss-Evaluatoren', () => {
 
   it('Bilanz: Extra-Aktivkonto und falsches Periodenergebnis', () => {
     const draft = balanceSheetSolutionDraft(initialJournalEntries, AS_OF)
-    draft.assets.push({ accountNumber: '1000', amountCents: 1 })
+    draft.assets.push({ accountNumber: '282', amountCents: 1 })
     draft.periodResultCents = 0
     const result = evaluateBalanceSheet(initialJournalEntries, AS_OF, draft)
     expect(result.fullyCorrect).toBe(false)
     expect(
-      result.criteria.some((c) => c.id === 'bilanz_asset_extra:1000' && !c.ok),
+      result.criteria.some((c) => c.id === 'bilanz_asset_extra:282' && !c.ok),
     ).toBe(true)
     expect(
       result.criteria.some((c) => c.id === 'bilanz_period_result' && !c.ok),
@@ -94,9 +94,9 @@ describe('Abschluss-Evaluatoren', () => {
   it('GuV: fehlende Ertragszeile und Extra-Aufwand', () => {
     const draft = incomeStatementSolutionDraft(initialJournalEntries, OCTOBER)
     draft.revenueRows = draft.revenueRows.filter(
-      (row) => row.accountNumber !== '8400',
+      (row) => row.accountNumber !== '501',
     )
-    draft.expenseRows.push({ accountNumber: '4800', amountCents: 50 })
+    draft.expenseRows.push({ accountNumber: '613', amountCents: 50 })
     const result = evaluateIncomeStatement(
       initialJournalEntries,
       OCTOBER,
@@ -104,10 +104,10 @@ describe('Abschluss-Evaluatoren', () => {
     )
     expect(result.fullyCorrect).toBe(false)
     expect(
-      result.criteria.some((c) => c.id === 'guv_revenue:8400' && !c.ok),
+      result.criteria.some((c) => c.id === 'guv_revenue:501' && !c.ok),
     ).toBe(true)
     expect(
-      result.criteria.some((c) => c.id === 'guv_expense_extra:4800' && !c.ok),
+      result.criteria.some((c) => c.id === 'guv_expense_extra:613' && !c.ok),
     ).toBe(true)
   })
 })

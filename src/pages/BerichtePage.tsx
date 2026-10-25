@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import { AbschlussStudio } from '../components/abschluss/AbschlussStudio'
+import { TrainingStudio } from '../components/abschluss/training/TrainingStudio'
 import { AccountLedgerPanel } from '../components/berichte/AccountLedgerPanel'
 import { BalanceSheetPanel } from '../components/berichte/BalanceSheetPanel'
 import { IncomeStatementPanel } from '../components/berichte/IncomeStatementPanel'
@@ -36,5 +38,7 @@ export function OpenItemsPage() {
 }
 
 export function AbschlussPage() {
-  return <AbschlussStudio />
+  const [mode, setMode] = useState<'fall' | 'studio'>('fall')
+  if (mode === 'studio') return <AbschlussStudio onBackToCase={() => setMode('fall')} />
+  return <TrainingStudio onOpenStudio={() => setMode('studio')} />
 }

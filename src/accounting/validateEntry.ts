@@ -6,6 +6,7 @@ import type {
   ValidationResult,
   VatRate,
 } from '../types/accounting'
+import { UMSATZSTEUER_ACCOUNT, VORSTEUER_ACCOUNT } from '../data/chart-of-accounts'
 import { explainBooking } from './explain'
 import { addCents, isBalanced } from './money'
 import { calculateGrossCents, calculateTaxCents, isVatRate } from './vat'
@@ -13,17 +14,17 @@ import { calculateGrossCents, calculateTaxCents, isVatRate } from './vat'
 export interface ValidateJournalOptions {
   /**
    * When false, the draft rate is treated as 0 % and buildLines emits no
-   * 1571/1576/1771/1776 lines. Default true.
+   * Vorsteuer-260- oder Umsatzsteuer-480-Zeile. Default true.
    */
   vatEnabled?: boolean
 }
 
-function vorsteuerAccount(vatRate: 7 | 19): string {
-  return vatRate === 7 ? '1571' : '1576'
+function vorsteuerAccount(_vatRate: 7 | 19): string {
+  return VORSTEUER_ACCOUNT
 }
 
-function umsatzsteuerAccount(vatRate: 7 | 19): string {
-  return vatRate === 7 ? '1771' : '1776'
+function umsatzsteuerAccount(_vatRate: 7 | 19): string {
+  return UMSATZSTEUER_ACCOUNT
 }
 
 function findAccount(

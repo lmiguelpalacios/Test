@@ -153,7 +153,7 @@ export function AccountingOverview() {
           </div>
           <p className="panel-footnote">
             Zeigt die ersten 10 Konten · insgesamt {chartOfAccounts.length} Konten im
-            Lernkontenplan
+            Schulkontenrahmen
           </p>
         </article>
       </section>

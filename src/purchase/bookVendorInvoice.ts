@@ -1,6 +1,6 @@
 import type { JournalEntryDraft } from '../types/accounting'
 import type { Supplier, VendorInvoice } from '../types/purchase'
-import { getAccountMap } from '../data/chart-of-accounts'
+import { PAYABLE_ACCOUNT, getAccountMap } from '../data/chart-of-accounts'
 import { calculateInvoiceTotals, validateInvoiceLine } from '../sales/invoiceMath'
 import type { InvoiceLine } from '../types/sales'
 
@@ -90,7 +90,7 @@ export function buildVendorInvoiceBookingDrafts(
       documentNumber: invoice.internalNumber,
       description: `Eingangsrechnung ${invoice.internalNumber} von ${supplier.companyName}`,
       debitAccount: group.expenseAccount,
-      creditAccount: '1600',
+      creditAccount: PAYABLE_ACCOUNT,
       netAmountCents: group.netCents,
       vatRate: group.vatRate,
     })

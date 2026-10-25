@@ -40,13 +40,13 @@ describe('Rechnungsbuchung', () => {
     if (!validated.ok) return
     const { debitCents, creditCents } = sumLines(validated.entry.lines)
     expect(isBalanced(debitCents, creditCents)).toBe(true)
-    expect(validated.entry.lines.some((line) => line.accountNumber === '1400')).toBe(
+    expect(validated.entry.lines.some((line) => line.accountNumber === '240')).toBe(
       true,
     )
-    expect(validated.entry.lines.some((line) => line.accountNumber === '8400')).toBe(
+    expect(validated.entry.lines.some((line) => line.accountNumber === '501')).toBe(
       true,
     )
-    expect(validated.entry.lines.some((line) => line.accountNumber === '1776')).toBe(
+    expect(validated.entry.lines.some((line) => line.accountNumber === '480')).toBe(
       true,
     )
   })
@@ -59,13 +59,13 @@ describe('Rechnungsbuchung', () => {
     if (!result.ok) return
     expect(result.drafts).toHaveLength(1)
     expect(result.drafts[0]?.vatRate).toBe(0)
-    expect(result.drafts[0]?.creditAccount).toBe('8000')
+    expect(result.drafts[0]?.creditAccount).toBe('501')
     const validated = validateJournalEntry(result.drafts[0]!, chartOfAccounts, {
       vatEnabled: false,
     })
     expect(validated.ok).toBe(true)
     if (!validated.ok) return
-    expect(validated.entry.lines.some((line) => line.accountNumber === '1776')).toBe(false)
+    expect(validated.entry.lines.some((line) => line.accountNumber === '480')).toBe(false)
     expect(validated.entry.grossAmountCents).toBe(validated.entry.netAmountCents)
   })
 
