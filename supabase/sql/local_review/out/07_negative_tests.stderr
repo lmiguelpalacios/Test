@@ -1,0 +1,5 @@
+psql:/workspace/supabase/sql/local_review/10_fixtures_and_negative_tests.sql:5: NOTICE:  table "review_results" does not exist, skipping
+psql:/workspace/supabase/sql/local_review/10_fixtures_and_negative_tests.sql:23: NOTICE:  truncate cascades to table "profiles"
+psql:/workspace/supabase/sql/local_review/10_fixtures_and_negative_tests.sql:23: NOTICE:  truncate cascades to table "organization_members"
+psql:/workspace/supabase/sql/local_review/10_fixtures_and_negative_tests.sql:23: NOTICE:  truncate cascades to table "learning_progress"
+psql:/workspace/supabase/sql/local_review/10_fixtures_and_negative_tests.sql:23: NOTICE:  truncate cascades to table "import_batches"
