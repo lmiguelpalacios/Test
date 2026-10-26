@@ -26,6 +26,7 @@ import {
 } from '../../types/learning'
 import { DemoBanner } from '../DemoBanner'
 import { PageHeader } from '../PageHeader'
+import { TrainingStudio } from '../abschluss/training/TrainingStudio'
 import { AbschlussFeedback } from '../abschluss/AbschlussFeedback'
 import {
   BalanceSheetBuilder,
@@ -80,6 +81,17 @@ export function LearningTaskDetail() {
           Zur Übersicht
         </Link>
       </div>
+    )
+  }
+
+  if (task.kind === 'fall') {
+    return (
+      <TrainingStudio
+        embedded
+        onSolved={(progress) => {
+          void submitLearningAnswer(task.id, { kind: 'fall', progress })
+        }}
+      />
     )
   }
 

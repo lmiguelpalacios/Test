@@ -40,7 +40,7 @@ npm test
 - Lernmodus: Bewertung lokal/online; Übungsjournal-Übernahme online noch gesperrt
 - Expliziter Workspace-Import-Wizard unter Einstellungen (Supabase/Owner); setzt `organizations.vat_enabled`
 - Dashboard: Journal-Kennzahlen; YTD-Grafik bleibt separate Demo
-- Geführtes Abschluss-Training: `/berichte/abschluss` — ein Fall, Fortschritt nur lokal. Details: `docs/abschluss-training.md`
+- Abschluss üben: `/berichte/abschluss` aus dem Journal der Organisation, Fortschritt nur lokal. Lernmodus endet mit „Alles auf einmal“. Details: `docs/abschluss-training.md`
 
 
 ## Struktur

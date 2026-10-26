@@ -1,6 +1,18 @@
 # Geführtes Abschluss-Training
 
-Stand: 2026-10-25. Route: `/berichte/abschluss` (Berichte → **Abschluss üben**). Kein Deploy, keine angewandte Migration, keine Änderung an Produktions- oder Review-Daten.
+Stand: 2026-10-26. Route: `/berichte/abschluss` (Berichte → **Abschluss üben**).
+
+„Abschluss üben“ liest das Journal der aktuellen Organisation (`useAccounting`), in derselben Reihenfolge wie die Buchhaltung. Es gibt keine Sortieraufgabe und keinen erfundenen Ersatzfall. Eine leere Firma verweist auf die Buchhaltung.
+
+Schritte, jeder für sich geprüft: **Eröffnung** nur, wenn eine Buchung Konto 800 enthält; danach **ein Schritt je Beleg** (Soll, Haben, Saldo nur dieses Belegs); dann **Abschluss** (802, 335, 801), **GuV** und **Schlussbilanz** aus denselben Salden. Öffnen ist nicht Korrekt. Eine Korrektur an einem Vorgang nimmt nur Abschluss, GuV und Schlussbilanz zurück.
+
+Umsatzsteuer folgt `organizations.vat_enabled` bzw. dem lokalen Workspace-Flag. Aus: keine 260/480, Brutto auf dem Aufwands- oder Ertragskonto. An: die Steuerzeilen der Buchung bleiben. Der Schalter wird nicht überschrieben.
+
+Fortschritt: `localStorage` `nordlicht.abschluss-training.v1`, Fall-Id `journal-ueben`. Zurücksetzen löscht nur diesen Stand.
+
+Der Nordlicht-2026-Fall bleibt als Lernmodus-Aufgabe **Alles auf einmal** (`lt-15`), mit eigener 19-%-Story und ohne Sortierliste.
+
+Keine Datenbankmigration.
 
 ## Was gebaut ist
 

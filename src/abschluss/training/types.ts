@@ -1,13 +1,12 @@
 import type { JournalEntryDraft, JournalLine } from '../../types/accounting'
 import type { AbschlussEvaluationResult } from '../types'
 
-/** Geführte Phasen. Reihenfolge ist die Freigabe-Reihenfolge. */
-export const PHASE_IDS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'] as const
+/** Phasen des kompletten Lernfalls. Keine Sortieraufgabe. */
+export const PHASE_IDS = ['B', 'C', 'D', 'E', 'F', 'G'] as const
 
 export type PhaseId = (typeof PHASE_IDS)[number]
 
 export const PHASE_LABELS: Record<PhaseId, string> = {
-  A: 'Vorfälle',
   B: 'Journal',
   C: 'T-Konten',
   D: 'Abschlussbuchungen',
@@ -137,7 +136,6 @@ export interface BalanceWorkDraft {
 export interface CaseProgress {
   caseId: string
   phases: Record<PhaseId, PhaseState>
-  eventOrder: string[]
   postings: Record<string, EventPostingDraft>
   tAccounts: TAccountWorkDraft[]
   closing: ClosingDraft
