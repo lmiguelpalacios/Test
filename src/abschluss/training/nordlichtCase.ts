@@ -257,11 +257,6 @@ export const nordlichtCase: TrainingCase = {
   ],
   events,
   hints: {
-    A: {
-      general: 'Lies Datum, Beleg und Betrag. Die Karten stehen absichtlich nicht in der Jahresfolge.',
-      accountClass: 'Zuerst die Eröffnung, dann die laufenden Vorfälle, am Stichtag die Bestandsveränderung.',
-      principle: 'Bei gleichem Datum bleibt die Belegfolge: erst der Anfangsbestand, dann die Inventur.',
-    },
     B: {
       general: 'Jede Buchung gleicht Soll und Haben aus. Steuerpflichtige Rechnungen haben mehr als zwei Zeilen.',
       accountClass: 'Warenaufwand und Miete liegen in Klasse 6, Erlöse und Zinsen in Klasse 5, Bestand und Steuerforderung in Klasse 2, Steuerverbindlichkeit in Klasse 4.',

@@ -2,7 +2,6 @@ import {
   evaluateBalance,
   evaluateClosing,
   evaluateControl,
-  evaluateEventOrder,
   evaluateGuv,
   evaluatePostings,
   evaluateTAccounts,
@@ -39,7 +38,6 @@ interface StoreFile {
 }
 
 const DOWNSTREAM: Record<PhaseId, PhaseId[]> = {
-  A: ['G'],
   B: ['C', 'D', 'E', 'F', 'G'],
   C: ['D', 'E', 'F', 'G'],
   D: ['E', 'F', 'G'],
@@ -53,9 +51,7 @@ export function blankLine(): TrainingLine {
 }
 
 export function canonicalEventIds(trainingCase: TrainingCase): string[] {
-  return [...trainingCase.events]
-    .sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
-    .map((event) => event.id)
+  return trainingCase.events.map((event) => event.id)
 }
 
 export function createInitialProgress(trainingCase: TrainingCase): CaseProgress {
@@ -65,7 +61,6 @@ export function createInitialProgress(trainingCase: TrainingCase): CaseProgress 
   return {
     caseId: trainingCase.id,
     phases: Object.fromEntries(PHASE_IDS.map((id) => [id, freshPhase()])) as CaseProgress['phases'],
-    eventOrder: [...ids].reverse(),
     postings,
     tAccounts: [],
     closing: { entries: [{ lines: [blankLine(), blankLine()] }] },
@@ -135,7 +130,7 @@ export function openPhase(progress: CaseProgress, phaseId: PhaseId): CaseProgres
 }
 
 export function skipPhase(progress: CaseProgress, phaseId: PhaseId): CaseProgress {
-  if (phaseId === 'A' || phaseId === 'G') return progress
+  if (phaseId === 'G') return progress
   if (lockReason(progress, phaseId)) return progress
   const next = clone(progress)
   next.phases[phaseId].status = 'uebersprungen'
@@ -164,13 +159,6 @@ export function revealSolution(
   const next = clone(progress)
   next.phases[phaseId].hintStage = 4
   return { progress: next, allowed: true }
-}
-
-export function setEventOrder(progress: CaseProgress, eventOrder: string[]): CaseProgress {
-  const next = clone(progress)
-  next.eventOrder = [...eventOrder]
-  markStarted(next, 'A')
-  return invalidateDownstream(next, 'A')
 }
 
 export function setPosting(
@@ -239,8 +227,7 @@ export function checkPhase(progress: CaseProgress, phaseId: PhaseId, trainingCas
   const solved = solveTrainingCase(trainingCase)
   const next = clone(progress)
   let evaluation = null
-  if (phaseId === 'A') evaluation = evaluateEventOrder(canonicalEventIds(trainingCase), next.eventOrder)
-  else if (phaseId === 'B') evaluation = evaluatePostings(solved, next.postings)
+  if (phaseId === 'B') evaluation = evaluatePostings(solved, next.postings)
   else if (phaseId === 'C') evaluation = evaluateTAccounts(solved, next.tAccounts)
   else if (phaseId === 'D') evaluation = evaluateClosing(solved, next.closing)
   else if (phaseId === 'E') evaluation = evaluateGuv(solved, next.guv)

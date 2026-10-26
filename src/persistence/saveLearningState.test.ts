@@ -55,6 +55,7 @@ describe('saveLearningState', () => {
       'lt-12',
       'lt-13',
       'lt-14',
+      'lt-15',
     ])
     expect(upserts[0]).toMatchObject({
       organization_id: 'org-1',

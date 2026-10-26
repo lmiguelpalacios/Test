@@ -1,3 +1,6 @@
+import { nordlichtCase } from '../abschluss/training/nordlichtCase'
+import { checkPhase } from '../abschluss/training/progress'
+import type { PhaseId } from '../abschluss/training/types'
 import type {
   AbschlussEvaluationResult,
 } from '../abschluss/types'
@@ -45,6 +48,13 @@ export function evaluateLearningAnswer(
     )
   }
 
+  if (task.kind === 'fall') {
+    if (submission.kind !== 'fall') {
+      return mismatchResult(task.maxPoints, 'Abschlussfall erwartet.')
+    }
+    return evaluateFallAnswer(submission.progress, task.maxPoints)
+  }
+
   if (task.kind === 'bilanz') {
     if (submission.kind !== 'bilanz') {
       return mismatchResult(task.maxPoints, 'Bilanz-Entwurf erwartet.')
@@ -66,6 +76,33 @@ export function evaluateLearningAnswer(
     ),
     task.maxPoints,
   )
+}
+
+function evaluateFallAnswer(
+  progress: Parameters<typeof checkPhase>[0],
+  maxPoints: number,
+): EvaluationResult {
+  const phases: PhaseId[] = ['B', 'C', 'D', 'E', 'F']
+  let next = progress
+  for (const id of phases) next = checkPhase(next, id, nordlichtCase)
+  const correct = phases.filter((id) => next.phases[id].status === 'korrekt').length
+  const fullyCorrect = correct === phases.length
+  return {
+    score: fullyCorrect ? maxPoints : correct,
+    maxPoints,
+    fullyCorrect,
+    criteria: phases.map((id) => ({
+      id: `fall:${id}`,
+      label: id,
+      ok: next.phases[id].status === 'korrekt',
+      feedback: next.phases[id].evaluation?.summary ?? 'Noch nicht geprüft.',
+      points: next.phases[id].status === 'korrekt' ? 1 : 0,
+      maxPoints: 1,
+    })),
+    summary: fullyCorrect
+      ? 'Der Nordlicht-Fall ist vollständig richtig.'
+      : 'Der Fall ist noch nicht in allen Teilen richtig.',
+  }
 }
 
 function evaluateBookingAnswer(

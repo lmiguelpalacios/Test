@@ -1,3 +1,4 @@
+import type { CaseProgress } from '../abschluss/training/types'
 import type {
   BalanceSheetDraft,
   IncomeStatementDraft,
@@ -19,7 +20,7 @@ export type LearningTopic =
 
 export type LearningDifficulty = 'leicht' | 'mittel' | 'schwer'
 
-export type LearningTaskKind = 'booking' | 't_accounts' | 'bilanz' | 'guv'
+export type LearningTaskKind = 'booking' | 't_accounts' | 'bilanz' | 'guv' | 'fall'
 
 export interface LearningSolution {
   debitAccount: string
@@ -80,11 +81,17 @@ export interface GuvLearningTask extends LearningTaskBase {
   allowPracticeJournalPost: false
 }
 
+export interface FallLearningTask extends LearningTaskBase {
+  kind: 'fall'
+  allowPracticeJournalPost: false
+}
+
 export type LearningTask =
   | BookingLearningTask
   | TAccountsLearningTask
   | BilanzLearningTask
   | GuvLearningTask
+  | FallLearningTask
 
 export interface LearningAnswer {
   debitAccount: string
@@ -99,6 +106,7 @@ export type LearningSubmission =
   | { kind: 't_accounts'; draft: TAccountDraft[] }
   | { kind: 'bilanz'; draft: BalanceSheetDraft }
   | { kind: 'guv'; draft: IncomeStatementDraft }
+  | { kind: 'fall'; progress: CaseProgress }
 
 export interface CriterionResult {
   id: string
@@ -156,4 +164,5 @@ export const LEARNING_KIND_LABELS: Record<LearningTaskKind, string> = {
   t_accounts: 'T-Konten',
   bilanz: 'Bilanz',
   guv: 'GuV',
+  fall: 'Abschlussfall',
 }

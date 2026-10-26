@@ -40,39 +40,6 @@ function criterion(
   return { id, label, ok, points: ok ? 1 : 0, maxPoints: 1, feedback }
 }
 
-export function evaluateEventOrder(
-  canonicalIds: string[],
-  givenIds: string[],
-): AbschlussEvaluationResult {
-  const sameLength = givenIds.length === canonicalIds.length
-  const sameSet =
-    sameLength && canonicalIds.every((id) => givenIds.includes(id)) && new Set(givenIds).size === givenIds.length
-  const sameOrder = sameSet && canonicalIds.every((id, index) => givenIds[index] === id)
-  return result(
-    [
-      criterion(
-        'order',
-        'Chronologische Reihenfolge',
-        sameOrder,
-        sameOrder
-          ? 'Die Vorfälle stehen in Belegfolge.'
-          : 'Die Reihenfolge weicht von den Belegdaten ab.',
-      ),
-      criterion(
-        'ids',
-        'Vorfall-IDs',
-        sameSet,
-        sameSet ? 'Alle Vorfälle sind genau einmal enthalten.' : 'Es fehlen Vorfälle oder es gibt Doppelte.',
-      ),
-    ],
-    {
-      ok: 'Die Vorfälle sind vollständig und chronologisch.',
-      empty: 'Reihenfolge und Vollständigkeit stimmen noch nicht.',
-      partial: 'Ein Teil der Ordnung stimmt.',
-    },
-  )
-}
-
 export function evaluatePostings(
   solved: SolvedCase,
   postings: CaseProgress['postings'],
@@ -473,7 +440,7 @@ export function evaluateBalance(solved: SolvedCase, draft: BalanceWorkDraft): Ab
 }
 
 export function evaluateControl(progress: CaseProgress): AbschlussEvaluationResult {
-  const required: PhaseId[] = ['A', 'B', 'C', 'D', 'E', 'F']
+  const required: PhaseId[] = ['B', 'C', 'D', 'E', 'F']
   const criteria = required.map((id) => {
     const ok = progress.phases[id].status === 'korrekt'
     return criterion(

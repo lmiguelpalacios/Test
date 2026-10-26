@@ -364,6 +364,23 @@ export const learningTasks: LearningTask[] = [
     fixtureEntries: abschlussFixtureJournal,
     asOf: FIXTURE_AS_OF,
   },
+  {
+    id: 'lt-15',
+    number: 15,
+    title: 'Alles auf einmal',
+    topic: 'bilanz_guv',
+    difficulty: 'schwer',
+    kind: 'fall',
+    scenario:
+      'Nordlicht Handels, Jahr 2026, in einem Stück: Eröffnung, Wareneinkauf, Warenverkauf, Zahlungen, Miete mit 19 % Umsatzsteuer, Habenzinsen ohne Steuer, Anfangsbestand und Inventur. Keine Sortierliste. Buche, stelle T-Konten, schließe über GuV und Schlussbilanz ab.',
+    explanation:
+      'Die Musterlösung entsteht aus denselben Vorfällen über validateJournalEntry und die Report-Builder. 19 % bleibt die Story dieses Falls und folgt nicht dem Schalter der Übung „Abschluss üben“.',
+    effects: {
+      result: 'Gewinn auf 335, Bestandskonten über 801.',
+    },
+    maxPoints: 5,
+    allowPracticeJournalPost: false,
+  },
 ]
 
 export function createEmptyLearningState(): LearningState {

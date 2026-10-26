@@ -77,7 +77,7 @@ describe('Lernmodus-Persistenz Workspace v4', () => {
     const pruefenIds = learningTasks
       .filter((task) => task.kind !== 'booking')
       .map((task) => task.id)
-    expect(pruefenIds).toEqual(['lt-13', 'lt-14'])
+    expect(pruefenIds).toEqual(['lt-13', 'lt-14', 'lt-15'])
     demo.learning = {
       progress: pruefenIds.map((taskId) => ({
         taskId,
@@ -94,6 +94,7 @@ describe('Lernmodus-Persistenz Workspace v4', () => {
     expect(loaded.learning.progress.map((item) => item.taskId)).toEqual([
       'lt-13',
       'lt-14',
+      'lt-15',
     ])
   })
 

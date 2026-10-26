@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getAccountMap } from '../../../data/chart-of-accounts'
 import { formatCents } from '../../../accounting/money'
@@ -6,7 +6,6 @@ import { mergeTAccountSeeds } from '../../../abschluss/training/progress'
 import { nordlichtCase } from '../../../abschluss/training/nordlichtCase'
 import {
   advanceHint,
-  canonicalEventIds,
   checkPhase,
   createInitialProgress,
   isCaseComplete,
@@ -18,7 +17,6 @@ import {
   saveCaseProgress,
   setBalance,
   setClosing,
-  setEventOrder,
   setGuv,
   setPosting,
   setTAccounts,
@@ -58,14 +56,22 @@ function browserStorage(): Storage | null {
   }
 }
 
-export function TrainingStudio({ onOpenStudio }: { onOpenStudio: () => void }) {
+export function TrainingStudio({
+  onOpenStudio,
+  embedded = false,
+  onSolved,
+}: {
+  onOpenStudio?: () => void
+  embedded?: boolean
+  onSolved?: (progress: CaseProgress) => void
+}) {
   const solved = useMemo(() => solveTrainingCase(nordlichtCase), [])
   const [progress, setProgress] = useState<CaseProgress>(() => {
     const storage = browserStorage()
     const loaded = storage ? loadCaseProgress(storage, nordlichtCase) : createInitialProgress(nordlichtCase)
-    return openPhase(loaded, 'A')
+    return openPhase(loaded, 'B')
   })
-  const [active, setActive] = useState<PhaseId>('A')
+  const [active, setActive] = useState<PhaseId>('B')
   const [checklistOpen, setChecklistOpen] = useState(false)
   const [lockMessage, setLockMessage] = useState<string | null>(null)
   const [solutionNote, setSolutionNote] = useState<string | null>(null)
@@ -75,6 +81,17 @@ export function TrainingStudio({ onOpenStudio }: { onOpenStudio: () => void }) {
     if (!storage) return
     saveCaseProgress(storage, progress)
   }, [progress])
+
+  const solvedNotified = useRef(false)
+  useEffect(() => {
+    if (!onSolved || solvedNotified.current) return
+    const done = (['B', 'C', 'D', 'E', 'F'] as const).every(
+      (id) => progress.phases[id].status === 'korrekt',
+    )
+    if (!done) return
+    solvedNotified.current = true
+    onSolved(progress)
+  }, [onSolved, progress])
 
   const phase = progress.phases[active]
   const locked = lockReason(progress, active)
@@ -118,7 +135,7 @@ export function TrainingStudio({ onOpenStudio }: { onOpenStudio: () => void }) {
     const storage = browserStorage()
     const fresh = storage ? resetCaseProgress(storage, nordlichtCase) : createInitialProgress(nordlichtCase)
     setProgress(fresh)
-    setActive('A')
+    setActive('B')
   }
 
   return (
@@ -131,19 +148,49 @@ export function TrainingStudio({ onOpenStudio }: { onOpenStudio: () => void }) {
         }
       />
       <PageHeader
-        title="Abschluss üben"
-        subtitle={`${nordlichtCase.title} · Centgenau aus dem Journal`}
+        title={embedded ? 'Alles auf einmal' : 'Abschluss üben'}
+        subtitle={
+          embedded
+            ? `${nordlichtCase.title} · eigene 19-%-Story, ohne Sortierliste`
+            : `${nordlichtCase.title} · Centgenau aus dem Journal`
+        }
         actions={
-          <>
-            <button type="button" className="btn btn-secondary" onClick={onOpenStudio}>
-              Freies Studio
-            </button>
-            <Link to="/berichte" className="btn btn-secondary">
+          embedded ? (
+            <Link to="/lernmodus" className="btn btn-secondary">
               Zur Übersicht
             </Link>
-          </>
+          ) : (
+            <>
+              {onOpenStudio ? (
+                <button type="button" className="btn btn-secondary" onClick={onOpenStudio}>
+                  Freies Studio
+                </button>
+              ) : null}
+              <Link to="/berichte" className="btn btn-secondary">
+                Zur Übersicht
+              </Link>
+            </>
+          )
         }
       />
+
+      {embedded ? (
+        <section className="panel">
+          <h2 className="panel-title">Vorfälle in Journalfolge</h2>
+          <ol className="training-events">
+            {nordlichtCase.events.map((event) => (
+              <li key={event.id}>
+                <strong>
+                  {event.date} · {event.documentNumber} · {event.title}
+                </strong>
+                <p>
+                  {event.party}. {event.story}
+                </p>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
 
       <div className={`training-layout ${checklistOpen ? 'is-open' : ''}`}>
         <aside className="panel training-checklist" aria-label="Checkliste">
@@ -200,7 +247,6 @@ export function TrainingStudio({ onOpenStudio }: { onOpenStudio: () => void }) {
             </section>
           ) : (
             <>
-              {active === 'A' ? <PhaseEvents progress={progress} onChange={patch} /> : null}
               {active === 'B' ? <PhaseJournal progress={progress} solved={solved} onChange={patch} /> : null}
               {active === 'C' ? <PhaseT progress={progress} onChange={patch} /> : null}
               {active === 'D' ? <PhaseClose progress={progress} onChange={patch} /> : null}
@@ -222,7 +268,7 @@ export function TrainingStudio({ onOpenStudio }: { onOpenStudio: () => void }) {
                 <button type="button" className="btn btn-primary" onClick={onCheck}>
                   Prüfen
                 </button>
-                {active !== 'A' && active !== 'G' ? (
+                {active !== 'G' ? (
                   <button type="button" className="btn btn-secondary" onClick={() => patch(skipPhase(progress, active))}>
                     Überspringen
                   </button>
@@ -282,14 +328,6 @@ function seed(progress: CaseProgress, id: PhaseId, solved: SolvedCase): CaseProg
 }
 
 function solutionText(id: PhaseId, solved: SolvedCase, progress: CaseProgress): string {
-  if (id === 'A') {
-    return canonicalEventIds(nordlichtCase)
-      .map((eventId) => {
-        const event = nordlichtCase.events.find((item) => item.id === eventId)!
-        return `${event.date} ${event.documentNumber} ${event.title}`
-      })
-      .join('\n')
-  }
   if (id === 'B') {
     return nordlichtCase.events
       .map((event) => {
@@ -339,64 +377,6 @@ function solutionText(id: PhaseId, solved: SolvedCase, progress: CaseProgress): 
     ].join('\n')
   }
   return isCaseComplete(progress) ? 'Der Fall ist abgeschlossen.' : 'Noch sind nicht alle Pflichtphasen Korrekt.'
-}
-
-function PhaseEvents({
-  progress,
-  onChange,
-}: {
-  progress: CaseProgress
-  onChange: (next: CaseProgress) => void
-}) {
-  const move = (index: number, direction: -1 | 1) => {
-    const order = [...progress.eventOrder]
-    const target = index + direction
-    if (target < 0 || target >= order.length) return
-    const [item] = order.splice(index, 1)
-    order.splice(target, 0, item)
-    onChange(setEventOrder(progress, order))
-  }
-  return (
-    <section className="panel">
-      <div className="panel-header">
-        <h2 className="panel-title">Geschäftsvorfälle</h2>
-        <span className="panel-badge">{nordlichtCase.company}</span>
-      </div>
-      <ul className="placeholder-list">
-        {nordlichtCase.assumptions.map((item) => (
-          <li key={item.title}>
-            <strong>{item.title}:</strong> {item.body}
-          </li>
-        ))}
-      </ul>
-      <ol className="training-events">
-        {progress.eventOrder.map((eventId, index) => {
-          const event = nordlichtCase.events.find((item) => item.id === eventId)
-          if (!event) return null
-          return (
-            <li key={event.id} className="training-event">
-              <div>
-                <strong>
-                  {event.date} · {event.documentNumber} · {event.title}
-                </strong>
-                <p>
-                  {event.party}. {event.story}
-                </p>
-              </div>
-              <div className="page-actions-row">
-                <button type="button" className="btn btn-secondary" onClick={() => move(index, -1)}>
-                  Nach oben
-                </button>
-                <button type="button" className="btn btn-secondary" onClick={() => move(index, 1)}>
-                  Nach unten
-                </button>
-              </div>
-            </li>
-          )
-        })}
-      </ol>
-    </section>
-  )
 }
 
 function PhaseJournal({
